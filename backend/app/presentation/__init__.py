@@ -13,10 +13,14 @@ def get_check_url() -> CheckUrl:
     if _check_url is None:
         try:
             from app.infrastructure import SafeBrowsingChecker, SqliteVerdictCache
+            checker = SafeBrowsingChecker()
+            cache = SqliteVerdictCache()
+        except ThreatCheckUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
         except ImportError as exc:
             raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
 
-        _check_url = CheckUrl(SafeBrowsingChecker(), SqliteVerdictCache())
+        _check_url = CheckUrl(checker, cache)
     return _check_url
 
 

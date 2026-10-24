@@ -107,7 +107,7 @@ API: `POST /check` `{"url": "..."}` → `{"dangerous": true | false}`. HTTP 503�
 
 ## 9. 남은 일
 
-- [x] 백엔드 `POST /check` (Google Web Risk + 캐시)
+- [x] 백엔드 `POST /check` (Google Safe Browsing + 캐시)
 - [ ] 데모용 가짜 피싱 문자와 가짜 사이트
 - [ ] 데모 폰에서 다운로드 감지, 원격제어 앱 패키지명, 접근성 화면 읽기 확인
 - [ ] 이용약관 문구 확정, 앱 화면에 추가
