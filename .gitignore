@@ -1,6 +1,8 @@
 .idea/
 .DS_Store
 .env
+*.sqlite3
+backend/data/
 
 # backend
 __pycache__/

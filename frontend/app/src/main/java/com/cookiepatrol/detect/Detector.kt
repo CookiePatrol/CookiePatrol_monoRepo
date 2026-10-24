@@ -23,19 +23,39 @@ private val URL = Regex("""(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?""")
 
 object Detector {
     private const val THRESHOLD = 3
+    private const val WARNING_COOLDOWN_MS = 30_000L
 
-    // ponytail: 앱이 켜져 있는 동안 계속 커짐. 메모리가 문제되면 LRU로 교체
-    private val checked = HashSet<String>()
+    private val checked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val recentWarnings = HashMap<String, Long>()
 
-    /** 알림·화면 글자 검사: 점수 합산 → 의심이면 백엔드(피싱 DB) 확인 → 위험이면 경고. 막지는 않는다. */
+    /** 로컬 위험 신호는 Web Risk 결과와 무관하게 경고하고, 알려진 위험 URL이면 경고를 강화한다. */
     fun inspect(context: Context, rawText: String) {
         val text = rawText.lowercase()
-        val urls = URL.findAll(text).map { it.value }.filter { checked.add(it) }.toList()
-        if (urls.isEmpty()) return
         val hits = SIGNALS.filter { it.matches(text) }
         if (hits.sumOf { it.score } < THRESHOLD) return
+        val reason = hits.maxBy { it.score }.reason
+        showWarningOnce(context, reason)
+
+        val urls = URL.findAll(text).map { it.value }.filter { checked.add(it) }.toList()
+        if (urls.isEmpty()) return
         thread {
-            if (urls.any(CheckApi::isDangerous)) Warning.show(context, hits.maxBy { it.score }.reason)
+            if (urls.any { CheckApi.check(it) == CheckStatus.DANGEROUS }) {
+                showWarningOnce(context, "위험한 사이트로 확인된 링크가 있어요.")
+            }
         }
+    }
+
+    private fun showWarningOnce(context: Context, reason: String) {
+        val now = System.currentTimeMillis()
+        val shouldShow = synchronized(recentWarnings) {
+            val previous = recentWarnings[reason]
+            if (previous == null || now - previous >= WARNING_COOLDOWN_MS) {
+                recentWarnings[reason] = now
+                true
+            } else {
+                false
+            }
+        }
+        if (shouldShow) Warning.show(context, reason)
     }
 }

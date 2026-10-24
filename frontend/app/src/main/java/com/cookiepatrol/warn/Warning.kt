@@ -31,6 +31,7 @@ private const val DEFAULT_ACTION = "누르지 말고, 돈·개인정보·인증�
 /** 경고문 = 결론 1줄 + 이유 1줄 + 할 일 1줄. 알림으로 띄우고, 누르면 큰 글씨 화면. */
 object Warning {
     private const val CHANNEL = "warning"
+    private const val NOTIFICATION_ID = 1001
 
     fun show(context: Context, reason: String, action: String = DEFAULT_ACTION) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -40,18 +41,19 @@ object Warning {
             .putExtra("action", action)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pending = PendingIntent.getActivity(
-            context, reason.hashCode(), intent,
+            context, NOTIFICATION_ID, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
             .setContentTitle(CONCLUSION)
             .setContentText(reason)
+            .setOnlyAlertOnce(true)
             .setContentIntent(pending)
             .setFullScreenIntent(pending, true)
             .setAutoCancel(true)
             .build()
-        nm.notify(reason.hashCode(), notification)
+        nm.notify(NOTIFICATION_ID, notification)
     }
 }
 
