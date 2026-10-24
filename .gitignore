@@ -12,3 +12,5 @@ __pycache__/
 .kotlin/
 build/
 local.properties
+
+cache.db
