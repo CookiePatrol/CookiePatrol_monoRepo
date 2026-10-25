@@ -5,7 +5,7 @@ from app.application.check_url import CheckUrl
 from app.domain.url_check import ThreatCheckUnavailable
 from app import infrastructure, presentation
 from app.main import app
-from app.presentation import get_check_url
+from app.presentation import close_check_url, get_check_url
 
 
 class FakeChecker:
@@ -13,9 +13,11 @@ class FakeChecker:
         self.dangerous = dangerous
         self.unavailable = unavailable
         self.calls = 0
+        self.last_url: str | None = None
 
     def is_dangerous(self, url: str) -> bool:
         self.calls += 1
+        self.last_url = url
         if self.unavailable:
             raise ThreatCheckUnavailable()
         return self.dangerous
@@ -46,6 +48,7 @@ def test_dangerous_response(client):
     response = client[0].post("/check", json={"url": " https://example.com "})
     assert response.status_code == 200
     assert response.json() == {"dangerous": True}
+    assert client[1].last_url == "https://example.com"
 
 
 def test_safe_response():
@@ -67,7 +70,19 @@ def test_second_request_uses_cache(client):
     assert checker.calls == 1
 
 
-@pytest.mark.parametrize("url", ["example.com", "ftp://example.com", " " + "x" * 2049])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "example.com",
+        "ftp://example.com",
+        "http://",
+        "https://?query=value",
+        "https://example.com:70000/path",
+        "https://user:password@example.com/",
+        "https://example.com/a b",
+        " " + "x" * 2049,
+    ],
+)
 def test_invalid_url_returns_422(client, url):
     response = client[0].post("/check", json={"url": url})
     assert response.status_code == 422
@@ -108,3 +123,25 @@ def test_missing_api_key_returns_503(monkeypatch):
         response = test_client.post("/check", json={"url": "https://example.com"})
 
     assert response.status_code == 503
+
+
+def test_uppercase_http_scheme_is_valid(client):
+    response = client[0].post("/check", json={"url": "HTTPS://Example.com/path"})
+    assert response.status_code == 200
+    assert client[1].last_url == "HTTPS://Example.com/path"
+
+
+def test_close_check_url_closes_cache(monkeypatch):
+    class ClosableCache(FakeCache):
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    cache = ClosableCache()
+    monkeypatch.setattr(presentation, "_check_url", CheckUrl(FakeChecker(), cache))
+
+    close_check_url()
+
+    assert cache.closed
+    assert presentation._check_url is None

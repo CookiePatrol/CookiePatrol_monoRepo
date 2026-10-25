@@ -30,8 +30,8 @@ Successful response:
 
 ## Privacy and operational notes
 
-- Message content is not accepted by this API. Avoid logging request bodies and full URLs: query strings may contain tokens or personal data.
-- An uncached candidate URL is sent to Google Safe Browsing for lookup. Disclose that transfer to users. The SQLite cache stores the URL, verdict, and check time; restrict access to its data file and avoid logging request bodies.
-- Cached results expire after 24 hours. Provider failures are not cached.
+- Message content is not accepted by this API. The exact candidate URL is sent to Google Safe Browsing and may contain personal data in its path or query string; explain this transfer to users and avoid submitting personalized links.
+- The SQLite cache stores a SHA-256 URL key, verdict, and check time rather than the clear-text URL. A plain hash is pseudonymous, not anonymized, and its database file still needs access controls. Existing cache tables with clear-text URLs are dropped on startup.
+- Avoid logging request bodies and full URLs. Cached results expire after 24 hours; provider failures are not cached.
 - `SAFE_BROWSING_API_KEY` belongs in server-side environment configuration, never in the Android app.
 - This service does not fetch the submitted URL. It validates its shape and sends it to the configured reputation provider.

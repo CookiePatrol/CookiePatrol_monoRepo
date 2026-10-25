@@ -1,5 +1,7 @@
+import hashlib
 import json
 import logging
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
@@ -49,6 +51,45 @@ def test_cache_persists(cache):
         assert other.get("https://example.com") is True
     finally:
         other.close()
+
+
+def test_cache_stores_only_sha256_url_key(cache):
+    url = "https://example.com/path?token=private"
+    cache.set(url, True)
+
+    columns = {
+        row[1] for row in cache._connection.execute("PRAGMA table_info(verdicts)").fetchall()
+    }
+    row = cache._connection.execute("SELECT cache_key FROM verdicts").fetchone()
+
+    assert "url" not in columns
+    assert row == (hashlib.sha256(url.encode("utf-8")).hexdigest(),)
+    assert url not in repr(cache._connection.execute("SELECT * FROM verdicts").fetchall())
+
+
+def test_cache_migrates_and_removes_legacy_plaintext_urls(tmp_path, monkeypatch):
+    db_path = tmp_path / "legacy.db"
+    private_url = "https://example.com/?token=private"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "CREATE TABLE verdicts (url TEXT PRIMARY KEY, dangerous INTEGER NOT NULL, checked_at REAL NOT NULL)"
+    )
+    connection.execute("INSERT INTO verdicts VALUES (?, 1, 1000)", (private_url,))
+    connection.commit()
+    connection.close()
+    monkeypatch.setenv("CACHE_DB_PATH", str(db_path))
+
+    cache = SqliteVerdictCache()
+    try:
+        columns = {
+            row[1] for row in cache._connection.execute("PRAGMA table_info(verdicts)").fetchall()
+        }
+        rows = cache._connection.execute("SELECT * FROM verdicts").fetchall()
+        assert columns == {"cache_key", "dangerous", "checked_at"}
+        assert rows == []
+        assert private_url.encode("utf-8") not in db_path.read_bytes()
+    finally:
+        cache.close()
 
 
 def test_cache_thread_pool(cache):

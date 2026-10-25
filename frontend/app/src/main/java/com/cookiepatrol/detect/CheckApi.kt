@@ -1,5 +1,6 @@
 package com.cookiepatrol.detect
 
+import com.cookiepatrol.BuildConfig
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -7,12 +8,11 @@ import java.net.URL
 enum class CheckStatus { DANGEROUS, NOT_LISTED, UNKNOWN }
 
 object CheckApi {
-    // 에뮬레이터에서 본 PC의 localhost. 실기기 데모면 PC의 LAN IP로 바꿀 것.
-    private const val BASE_URL = "http://10.0.2.2:8000"
+    private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
-    /** Web Risk 목록 판정. NOT_LISTED는 안전 보증이 아니며 UNKNOWN과 함께 로컬 경고를 유지한다. */
+    /** Safe Browsing 목록 판정. NOT_LISTED는 안전 보증이 아니며 UNKNOWN과 함께 로컬 경고를 유지한다. */
     fun check(url: String): CheckStatus = runCatching {
-        val conn = URL("$BASE_URL/check").openConnection() as HttpURLConnection
+        val conn = URL("$baseUrl/check").openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
             conn.doOutput = true
