@@ -12,6 +12,15 @@ from app.infrastructure import SafeBrowsingChecker, SqliteVerdictCache
 from app.infrastructure import safe_browsing, verdict_cache
 
 
+VALID_MATCH = {
+    "threatType": "SOCIAL_ENGINEERING",
+    "platformType": "ANY_PLATFORM",
+    "threatEntryType": "URL",
+    "threat": {"url": "https://example.com"},
+    "cacheDuration": "300.000s",
+}
+
+
 @pytest.fixture
 def cache(tmp_path, monkeypatch):
     monkeypatch.setenv("CACHE_DB_PATH", str(tmp_path / "cache.db"))
@@ -122,7 +131,7 @@ def mock_checker(monkeypatch):
 
 @pytest.mark.parametrize(
     ("payload", "expected"),
-    [({}, False), ({"matches": [{"threatType": "SOCIAL_ENGINEERING"}]}, True),
+    [({}, False), ({"matches": [VALID_MATCH]}, True),
      ({"matches": []}, False)],
 )
 def test_checker_verdict_and_request(mock_checker, payload, expected, caplog):
@@ -179,6 +188,41 @@ def test_checker_invalid_response(mock_checker, payload):
 
 def test_checker_invalid_json(mock_checker):
     checker = mock_checker(lambda request: httpx.Response(200, content=b"not json"))
+    with pytest.raises(ThreatCheckUnavailable):
+        checker.is_dangerous("https://example.com")
+
+
+@pytest.mark.parametrize("field", ["threatType", "platformType", "threatEntryType", "threat"])
+def test_checker_rejects_missing_match_fields(mock_checker, field):
+    match = {key: value for key, value in VALID_MATCH.items() if key != field}
+    checker = mock_checker(lambda request: httpx.Response(200, json={"matches": [match]}))
+    with pytest.raises(ThreatCheckUnavailable):
+        checker.is_dangerous("https://example.com")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("threatType", "UNKNOWN"), ("threatType", []),
+        ("platformType", "PLATFORM_TYPE_UNSPECIFIED"), ("platformType", {}),
+        ("threatEntryType", "EXECUTABLE"), ("threatEntryType", None),
+        ("threat", None), ("threat", {}), ("threat", {"hash": "abc"}),
+        ("threat", {"url": 123}), ("threat", {"url": "   "}),
+        ("cacheDuration", 300), ("cacheDuration", "300"),
+        ("cacheDuration", "-1s"), ("cacheDuration", "1.1234567890s"),
+    ],
+)
+def test_checker_rejects_malformed_match_fields(mock_checker, field, value):
+    match = {**VALID_MATCH, field: value}
+    checker = mock_checker(lambda request: httpx.Response(200, json={"matches": [match]}))
+    with pytest.raises(ThreatCheckUnavailable):
+        checker.is_dangerous("https://example.com")
+
+
+def test_checker_rejects_arbitrary_and_mixed_matches(mock_checker):
+    checker = mock_checker(lambda request: httpx.Response(
+        200, json={"matches": [VALID_MATCH, {"unexpected": True}]}
+    ))
     with pytest.raises(ThreatCheckUnavailable):
         checker.is_dangerous("https://example.com")
 
