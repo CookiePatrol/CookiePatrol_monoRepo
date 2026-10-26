@@ -1,37 +1,60 @@
 # Cookie Patrol backend
 
-FastAPI service for URL reputation checks using Google Safe Browsing. The app sends only a candidate URL to this service; message text and local risk signals stay on the Android device.
+FastAPI service checking Google Safe Browsing first, then using the OpenAI Responses API for additional URL analysis when Google has no match or is unavailable. The Android app sends only candidate URLs; message and screen text stay on the device. The Google lookup checks a live threat database; the AI model only analyzes the URL string and does not browse the page.
 
-## Run locally
+## API key and local startup
 
-From this directory, configure `SAFE_BROWSING_API_KEY` in the environment, then run:
+Enter your Google Safe Browsing and OpenAI API keys in `backend/.env` (created locally and ignored by Git):
+
+```dotenv
+SAFE_BROWSING_API_KEY=your-google-key-here
+OPENAI_API_KEY=your-openai-key-here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+For a fresh checkout, copy `backend/.env.example` to `backend/.env` first. The backend automatically reads this file regardless of the working directory. Existing environment variables take precedence. Restart the backend after changing the key or model. Keep the key on the server; never put it in the Android app.
+
+From `backend/`:
 
 ```powershell
-uv run fastapi dev app/main.py
+uv sync
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-If the key is missing or Google cannot be reached, `POST /check` returns HTTP 503. The Android client maps failures to `unknown`; an unavailable provider is never treated as a safe result. The SQLite cache defaults to `./data/cookiepatrol-cache.sqlite3`; override it with `CACHE_DB_PATH`.
+Or use an existing virtual environment:
 
-## API
-
-`POST /check`
-
-```json
-{"url": "https://example.com/path"}
+```powershell
+.\.venv\Scripts\python.exe -m pip install 'fastapi[standard]' 'httpx>=0.27,<1' 'python-dotenv>=1.0'
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Successful response:
+API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.2:8000`. For a physical phone, bind to `0.0.0.0` and configure the Android `cookiePatrolApiBaseUrl` property with the PC's LAN address.
 
-```json
-{"dangerous": true}
+## API behavior
+
+`POST /check` accepts `{"url":"https://example.com/path"}` and retains the existing response contract:
+
+- `200 {"dangerous":true}`: Google listed the URL as a threat, or the AI detected suspicious URL indicators. Google matches skip AI calls.
+- `200 {"dangerous":false}`: Google had no match or was unavailable, and AI did not detect concrete indicators. This is not a safety guarantee.
+- `503`: Google did not establish a threat and AI analysis was unavailable (missing/invalid OpenAI key, timeout, refusal, malformed output or unknown judgment). A Google failure or missing Google key falls back to AI. A Google threat match still works without an OpenAI key. The app preserves its local warnings.
+- `422`: invalid URL input.
+
+`GET /health` checks process health, not provider credentials or availability.
+
+The default model is `gpt-4.1-mini`; configure `OPENAI_MODEL` to change it. The request uses a strict JSON schema, a 200-token output limit, no browsing tools, and `store: false`. OpenAI API usage can incur charges. Assessment is limited to the URL string, so redirects and page content are not inspected. Structured output validates format, not judgment accuracy.
+
+## Cache and data handling
+
+AI results are cached for 24 hours in `./data/cookiepatrol-cache.sqlite3` (override with `CACHE_DB_PATH`). AI cache keys include provider, model, and prompt version. Google is consulted before the AI cache, so an old AI result cannot override a new Google threat match. Google positive matches are cached separately in memory for the returned `cacheDuration`; a server restart clears that cache. No-match Google results are not cached. Only SHA-256 URL keys, verdicts, and timestamps are stored; hashes are not anonymization. Failures and unknown assessments are not cached.
+
+Full candidate URLs are sent to Google Safe Browsing and, only if additional analysis is needed, to OpenAI and may contain personal data or tokens in their path or query. Avoid personalized links and logging request bodies, full URLs, or authorization headers. `store: false` disables response storage; it does not imply zero data retention under all OpenAI policies.
+
+## Tests
+
+```powershell
+uv run pytest -q
 ```
 
-`dangerous: false` means Safe Browsing did not list the URL; it is not a guarantee that the URL is safe. The Android client maps this result to `not_listed` and preserves local warnings. Provider failures return HTTP 503 and map to `unknown`. Invalid URLs receive HTTP 422. `/health` is a basic process health check.
+Provider requests are mocked, so tests do not require a real key or spend API credits. Test actual authenticated access only after configuring your key.
 
-## Privacy and operational notes
-
-- Message content is not accepted by this API. The exact candidate URL is sent to Google Safe Browsing and may contain personal data in its path or query string; explain this transfer to users and avoid submitting personalized links.
-- The SQLite cache stores a SHA-256 URL key, verdict, and check time rather than the clear-text URL. A plain hash is pseudonymous, not anonymized, and its database file still needs access controls. Existing cache tables with clear-text URLs are dropped on startup.
-- Avoid logging request bodies and full URLs. Cached results expire after 24 hours; provider failures are not cached.
-- `SAFE_BROWSING_API_KEY` belongs in server-side environment configuration, never in the Android app.
-- This service does not fetch the submitted URL. It validates its shape and sends it to the configured reputation provider.
+Official references: [Google Lookup API](https://developers.google.com/safe-browsing/v4/lookup-api), [Google caching](https://developers.google.com/safe-browsing/v4/caching), [Responses API](https://developers.openai.com/api/docs/guides/text), [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).

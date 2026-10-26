@@ -2,7 +2,7 @@ from typing import Protocol
 
 
 class ThreatCheckUnavailable(Exception):
-    """피싱 DB 조회 실패 (네트워크, 키 오류, 할당량 초과 등)."""
+    """위험 분석 불가 (네트워크, 키 오류, 할당량 초과, AI 판단 불가 등)."""
 
 
 class ThreatChecker(Protocol):

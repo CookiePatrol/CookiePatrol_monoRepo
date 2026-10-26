@@ -9,7 +9,8 @@ from pathlib import Path
 
 
 class SqliteVerdictCache:
-    def __init__(self) -> None:
+    def __init__(self, namespace: str = "") -> None:
+        self._namespace = namespace
         self._lock = threading.Lock()
         db_path = os.environ.get("CACHE_DB_PATH", "./data/cookiepatrol-cache.sqlite3")
         if db_path != ":memory:":
@@ -29,9 +30,9 @@ class SqliteVerdictCache:
                 "cache_key TEXT PRIMARY KEY, dangerous INTEGER NOT NULL, checked_at REAL NOT NULL)"
             )
 
-    @staticmethod
-    def _cache_key(url: str) -> str:
-        return hashlib.sha256(url.encode("utf-8")).hexdigest()
+    def _cache_key(self, url: str) -> str:
+        value = f"{self._namespace}\0{url}" if self._namespace else url
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     def get(self, url: str) -> bool | None:
         with self._lock, self._connection:
