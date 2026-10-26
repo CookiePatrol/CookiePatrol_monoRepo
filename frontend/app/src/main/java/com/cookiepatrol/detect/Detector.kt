@@ -2,6 +2,8 @@ package com.cookiepatrol.detect
 
 import android.content.Context
 import com.cookiepatrol.warn.Warning
+import java.net.URI
+import java.util.LinkedHashMap
 import kotlin.concurrent.thread
 
 /** 위험 신호 하나. reason은 경고문 "이유" 줄에 그대로 쓰인다. */
@@ -12,30 +14,104 @@ private fun any(vararg words: String): (String) -> Boolean = { text -> words.any
 val SIGNALS = listOf(
     Signal(2, "진짜 주소를 숨기는 단축 주소예요.") { Regex("""\b(bit\.ly|han\.gl|me2\.kr|url\.kr|vo\.la|t\.ly|tinyurl\.com)/""").containsMatchIn(it) },
     Signal(1, "암호화되지 않은(http) 사이트예요.") { "http://" in it },
-    Signal(3, "정상 사이트는 숫자 주소(IP)를 거의 쓰지 않아요.") { Regex("""https?://\d+\.\d+\.\d+\.\d+""").containsMatchIn(it) },
+    Signal(3, "정상 사이트는 숫자 주소(IP)를 거의 쓰지 않아요.") {
+        Regex("""https?://(?:\d+\.\d+\.\d+\.\d+|\[[0-9a-f:]+])""").containsMatchIn(it)
+    },
     Signal(3, "앱 설치 파일(APK)을 받게 하는 링크예요.") { Regex("""\.apk\b""").containsMatchIn(it) },
     Signal(2, "택배·환급·미납처럼 사기 문자에 자주 나오는 말이 있어요.", any("택배", "미납", "환급", "과태료", "정부지원", "당첨")),
     Signal(2, "가족인 척 급하게 돈이나 인증번호를 요구해요.", any("엄마", "아빠", "폰이 고장", "액정", "인증번호")),
     Signal(3, "주민등록번호 전체를 입력하라고 해요.", any("주민등록번호", "주민번호")),
 )
 
-private val URL = Regex("""(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?""")
+object UrlExtractor {
+    private val pattern = Regex(
+        """(?i)(?<![a-z0-9._-])(?:https?://)?(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9-]{2,63}|(?:\d{1,3}\.){3}\d{1,3}|https?://\[[0-9a-f:.]+])(?::\d{1,5})?(?:[/?#][^\s<>"']*)?""",
+    )
+    private val trailingPunctuation = setOf('.', ',', '!', '?', ';', ':', '\'', '"', '…', '。')
+
+    fun extract(text: String): List<String> = pattern.findAll(text)
+        .mapNotNull { normalize(it.value) }
+        .distinct()
+        .toList()
+
+    private fun normalize(raw: String): String? {
+        var candidate = raw
+        while (candidate.lastOrNull()?.let { it in trailingPunctuation } == true) {
+            candidate = candidate.dropLast(1)
+        }
+        while (candidate.endsWith(')') && candidate.count { it == ')' } > candidate.count { it == '(' }) {
+            candidate = candidate.dropLast(1)
+        }
+        while (candidate.endsWith(']') && candidate.count { it == ']' } > candidate.count { it == '[' }) {
+            candidate = candidate.dropLast(1)
+        }
+        while (candidate.endsWith('}') && candidate.count { it == '}' } > candidate.count { it == '{' }) {
+            candidate = candidate.dropLast(1)
+        }
+        if (candidate.isBlank()) return null
+
+        val normalized = if (candidate.startsWith("http://", ignoreCase = true) ||
+            candidate.startsWith("https://", ignoreCase = true)
+        ) candidate else "https://$candidate"
+        val uri = runCatching { URI(normalized) }.getOrNull() ?: return null
+        val port = uri.port
+        if (uri.scheme?.lowercase() !in setOf("http", "https") || uri.host.isNullOrBlank() || port > 65535) {
+            return null
+        }
+        return normalized
+    }
+}
 
 object Detector {
     private const val THRESHOLD = 3
+    private const val WARNING_COOLDOWN_MS = 30_000L
+    private const val URL_CHECK_TTL_MS = 5 * 60_000L
+    private const val MAX_CHECKED_URLS = 500
 
-    // ponytail: 앱이 켜져 있는 동안 계속 커짐. 메모리가 문제되면 LRU로 교체
-    private val checked = HashSet<String>()
+    private val checkedAt = LinkedHashMap<String, Long>()
+    private val recentWarnings = HashMap<String, Long>()
 
-    /** 알림·화면 글자 검사: 점수 합산 → 의심이면 백엔드(피싱 DB) 확인 → 위험이면 경고. 막지는 않는다. */
+    /** 로컬 위험 신호는 Safe Browsing 결과와 무관하게 경고하고, 알려진 위험 URL이면 경고를 강화한다. */
     fun inspect(context: Context, rawText: String) {
         val text = rawText.lowercase()
-        val urls = URL.findAll(text).map { it.value }.filter { checked.add(it) }.toList()
-        if (urls.isEmpty()) return
         val hits = SIGNALS.filter { it.matches(text) }
         if (hits.sumOf { it.score } < THRESHOLD) return
+        val reason = hits.maxBy { it.score }.reason
+        showWarningOnce(context, reason)
+
+        val urls = UrlExtractor.extract(rawText).filter { shouldCheckUrl(it) }
+        if (urls.isEmpty()) return
         thread {
-            if (urls.any(CheckApi::isDangerous)) Warning.show(context, hits.maxBy { it.score }.reason)
+            if (urls.any { CheckApi.check(it) == CheckStatus.DANGEROUS }) {
+                showWarningOnce(context, "위험한 사이트로 확인된 링크가 있어요.")
+            }
         }
+    }
+
+    @Synchronized
+    private fun shouldCheckUrl(url: String): Boolean {
+        val now = System.currentTimeMillis()
+        val lastChecked = checkedAt[url]
+        if (lastChecked != null && now - lastChecked < URL_CHECK_TTL_MS) return false
+        checkedAt.remove(url)
+        checkedAt[url] = now
+        while (checkedAt.size > MAX_CHECKED_URLS) {
+            checkedAt.remove(checkedAt.entries.first().key)
+        }
+        return true
+    }
+
+    private fun showWarningOnce(context: Context, reason: String) {
+        val now = System.currentTimeMillis()
+        val shouldShow = synchronized(recentWarnings) {
+            val previous = recentWarnings[reason]
+            if (previous == null || now - previous >= WARNING_COOLDOWN_MS) {
+                recentWarnings[reason] = now
+                true
+            } else {
+                false
+            }
+        }
+        if (shouldShow) Warning.show(context, reason)
     }
 }

@@ -116,6 +116,22 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("링크 검사와 개인정보", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 판별을 위해 데모 서버와 Google Safe Browsing으로 전송됩니다.",
+                                fontSize = 20.sp, lineHeight = 29.sp,
+                            )
+                            Text(
+                                "링크 주소에 개인 정보나 로그인 토큰이 들어 있을 수 있어요. 서버는 주소 원문 대신 변환값을 최대 24시간 저장하지만, 이 값도 완전한 익명 정보는 아닙니다.",
+                                fontSize = 20.sp, lineHeight = 29.sp,
+                            )
+                        }
+                    }
                     Text("경고는 주의를 돕는 안내예요. 모든 사기를 찾아낼 수는 없어요.", fontSize = 22.sp, lineHeight = 30.sp)
                 }
             }

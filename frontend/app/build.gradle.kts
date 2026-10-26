@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val cookiePatrolApiBaseUrl = providers.gradleProperty("cookiePatrolApiBaseUrl")
+    .orElse("http://10.0.2.2:8000")
+    .get()
+
 android {
     namespace = "com.cookiepatrol"
     compileSdk = 35
@@ -13,8 +17,12 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "API_BASE_URL", "\"$cookiePatrolApiBaseUrl\"")
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 kotlin { jvmToolchain(17) }
