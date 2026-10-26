@@ -71,7 +71,7 @@ object Detector {
     private val checkedAt = LinkedHashMap<String, Long>()
     private val recentWarnings = HashMap<String, Long>()
 
-    /** 로컬 위험 신호는 Safe Browsing 결과와 무관하게 경고하고, 알려진 위험 URL이면 경고를 강화한다. */
+    /** 로컬 경고를 유지하고, 피싱 DB 또는 AI가 위험을 감지하면 경고를 강화한다. */
     fun inspect(context: Context, rawText: String) {
         val text = rawText.lowercase()
         val hits = SIGNALS.filter { it.matches(text) }
@@ -83,7 +83,7 @@ object Detector {
         if (urls.isEmpty()) return
         thread {
             if (urls.any { CheckApi.check(it) == CheckStatus.DANGEROUS }) {
-                showWarningOnce(context, "위험한 사이트로 확인된 링크가 있어요.")
+                showWarningOnce(context, "추가 검사에서 링크의 위험 신호가 발견됐어요.")
             }
         }
     }

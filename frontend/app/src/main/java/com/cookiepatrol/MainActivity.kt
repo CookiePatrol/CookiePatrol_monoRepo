@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("링크 검사와 개인정보", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                "알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 판별을 위해 데모 서버와 Google Safe Browsing으로 전송됩니다.",
+                                "알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 데모 서버와 Google Safe Browsing으로 전송되고, 추가 분석이 필요하면 OpenAI로도 전송됩니다.",
                                 fontSize = 20.sp, lineHeight = 29.sp,
                             )
                             Text(

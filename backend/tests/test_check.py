@@ -9,6 +9,8 @@ from app.presentation import close_check_url, get_check_url
 
 
 class FakeChecker:
+    cache_namespace = "test"
+
     def __init__(self, dangerous: bool = False, unavailable: bool = False):
         self.dangerous = dangerous
         self.unavailable = unavailable
@@ -104,8 +106,9 @@ def test_default_dependency_wiring_uses_infrastructure(monkeypatch):
     checker = FakeChecker(dangerous=True)
     cache = FakeCache()
     monkeypatch.setattr(presentation, "_check_url", None)
-    monkeypatch.setattr(infrastructure, "SafeBrowsingChecker", lambda: checker)
-    monkeypatch.setattr(infrastructure, "SqliteVerdictCache", lambda: cache)
+    monkeypatch.setattr(infrastructure, "OpenAIThreatChecker", lambda: checker)
+    monkeypatch.setattr(infrastructure, "SafeBrowsingChecker", lambda: FakeChecker())
+    monkeypatch.setattr(infrastructure, "SqliteVerdictCache", lambda **kwargs: cache)
 
     with TestClient(app) as test_client:
         response = test_client.post("/check", json={"url": "https://example.com"})
@@ -116,6 +119,7 @@ def test_default_dependency_wiring_uses_infrastructure(monkeypatch):
 
 
 def test_missing_api_key_returns_503(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("SAFE_BROWSING_API_KEY", raising=False)
     monkeypatch.setattr(presentation, "_check_url", None)
 
