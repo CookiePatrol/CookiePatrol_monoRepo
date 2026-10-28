@@ -28,7 +28,7 @@ Or use an existing virtual environment:
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.2:8000`. For a physical phone, bind to `0.0.0.0` and configure the Android `cookiePatrolApiBaseUrl` property with the PC's LAN address.
+API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.2:8000`. For a physical phone, configure an HTTPS backend URL in the Android `cookiePatrolApiBaseUrl` property; release builds reject cleartext API connections.
 
 ## API behavior
 
@@ -42,6 +42,8 @@ API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.
 `GET /health` checks process health, not provider credentials or availability.
 
 The default model is `gpt-4.1-mini`; configure `OPENAI_MODEL` to change it. The request uses a strict JSON schema, a 200-token output limit, no browsing tools, and `store: false`. OpenAI API usage can incur charges. Assessment is limited to the URL string, so redirects and page content are not inspected. Structured output validates format, not judgment accuracy.
+
+`POST /check` is limited to 60 requests per minute per client IP in each backend process and returns `429` with `Retry-After` when exceeded. This in-memory limit is a demo safeguard, not a distributed quota; deployments with multiple workers or replicas should also configure a shared gateway limit and provider spending caps. Expired AI verdicts are removed as new entries are written, and the persistent cache is capped at 100,000 entries. The Safe Browsing positive cache is capped at 10,000 entries.
 
 ## Cache and data handling
 

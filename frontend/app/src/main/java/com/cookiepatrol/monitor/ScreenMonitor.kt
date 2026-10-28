@@ -17,6 +17,24 @@ import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal fun combineScreenText(
+    accessibleText: String,
+    recognizedText: String,
+    maxChars: Int = 12_000,
+): String {
+    if (maxChars <= 0) return ""
+    if (recognizedText.isBlank()) return accessibleText.take(maxChars)
+
+    val accessiblePart = accessibleText.take(maxChars / 2)
+    val remaining = maxChars - accessiblePart.length - if (accessiblePart.isEmpty()) 0 else 1
+    val recognizedPart = recognizedText.take(remaining.coerceAtLeast(0))
+    return buildString(accessiblePart.length + recognizedPart.length + 1) {
+        append(accessiblePart)
+        if (accessiblePart.isNotEmpty() && recognizedPart.isNotEmpty()) append('\n')
+        append(recognizedPart)
+    }
+}
+
 /** Demo-only screen reading: accessibility text plus on-device OCR of the visible screen. */
 class ScreenMonitor : AccessibilityService() {
 
@@ -45,9 +63,6 @@ class ScreenMonitor : AccessibilityService() {
     }
 
     private fun scanActiveWindow() {
-        val root = runCatching { rootInActiveWindow }.getOrNull() ?: return
-        if (root.packageName == packageName) return
-
         if (!scanInProgress.compareAndSet(false, true)) {
             scanAgain.set(true)
             return
@@ -62,31 +77,59 @@ class ScreenMonitor : AccessibilityService() {
             return
         }
 
+        val root = runCatching { rootInActiveWindow }.getOrNull()
+        if (root == null) {
+            finishScan()
+            return
+        }
+        if (root.packageName == packageName) {
+            recycleNode(root)
+            finishScan()
+            return
+        }
+
+        val windowId = root.windowId
         lastScreenshotAt = now
         val accessibleText = StringBuilder()
-        collect(root, accessibleText, HashSet(), intArrayOf(0))
+        try {
+            collect(root, accessibleText, HashSet(), intArrayOf(0))
+        } catch (_: RuntimeException) {
+            finishScan()
+            return
+        }
         val textSnapshot = accessibleText.toString()
 
         val callback = object : TakeScreenshotCallback {
             override fun onSuccess(screenshot: ScreenshotResult) {
+                if (destroyed.get()) {
+                    screenshot.hardwareBuffer.close()
+                    finishScan()
+                    return
+                }
                 recognizeScreenshot(screenshot, textSnapshot)
             }
 
             override fun onFailure(errorCode: Int) {
-                inspectText(textSnapshot)
-                finishScan()
+                try {
+                    inspectText(textSnapshot)
+                } finally {
+                    finishScan()
+                }
             }
         }
 
         try {
             if (android.os.Build.VERSION.SDK_INT >= 34) {
-                takeScreenshotOfWindow(root.windowId, ocrExecutor, callback)
+                takeScreenshotOfWindow(windowId, ocrExecutor, callback)
             } else {
                 takeScreenshot(Display.DEFAULT_DISPLAY, ocrExecutor, callback)
             }
         } catch (_: RuntimeException) {
-            inspectText(textSnapshot)
-            finishScan()
+            try {
+                inspectText(textSnapshot)
+            } finally {
+                finishScan()
+            }
         }
     }
 
@@ -102,34 +145,39 @@ class ScreenMonitor : AccessibilityService() {
         }
 
         if (bitmap == null) {
-            inspectText(accessibleText)
-            finishScan()
+            try {
+                inspectText(accessibleText)
+            } finally {
+                finishScan()
+            }
             return
         }
 
         val task = runCatching { recognizer.process(InputImage.fromBitmap(bitmap, 0)) }.getOrNull()
         if (task == null) {
-            bitmap.recycle()
-            inspectText(accessibleText)
-            finishScan()
+            try {
+                inspectText(accessibleText)
+            } finally {
+                bitmap.recycle()
+                finishScan()
+            }
             return
         }
 
         task.addOnCompleteListener(ocrExecutor) { result ->
-            val recognizedText = if (result.isSuccessful) result.result?.text.orEmpty() else ""
-            inspectText(accessibleText, recognizedText)
-            bitmap.recycle()
-            finishScan()
+            try {
+                val recognizedText = if (result.isSuccessful) result.result?.text.orEmpty() else ""
+                inspectText(accessibleText, recognizedText)
+            } finally {
+                bitmap.recycle()
+                finishScan()
+            }
         }
     }
 
     private fun inspectText(accessibleText: String, recognizedText: String = "") {
-        val combined = buildString {
-            append(accessibleText)
-            if (recognizedText.isNotBlank() && length < MAX_SCREEN_TEXT_CHARS) {
-                append('\n').append(recognizedText.take(MAX_SCREEN_TEXT_CHARS - length))
-            }
-        }
+        if (destroyed.get()) return
+        val combined = combineScreenText(accessibleText, recognizedText, MAX_SCREEN_TEXT_CHARS)
         if (combined.isNotBlank()) Detector.inspect(this, combined)
     }
 
@@ -152,20 +200,30 @@ class ScreenMonitor : AccessibilityService() {
         seen: MutableSet<String>,
         visited: IntArray,
     ) {
-        if (node == null || out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) return
-        visited[0]++
-        listOfNotNull(node.text, node.hintText, node.contentDescription)
-            .map { it.toString() }
-            .filter { it.isNotBlank() && seen.add(it) }
-            .forEach { value ->
-                if (out.length < MAX_SCREEN_TEXT_CHARS) {
-                    out.append(value.take(MAX_SCREEN_TEXT_CHARS - out.length)).append('\n')
+        if (node == null) return
+        try {
+            if (out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) return
+            visited[0]++
+            listOfNotNull(node.text, node.hintText, node.contentDescription)
+                .map { it.toString() }
+                .filter { it.isNotBlank() && seen.add(it) }
+                .forEach { value ->
+                    if (out.length < MAX_SCREEN_TEXT_CHARS) {
+                        out.append(value.take(MAX_SCREEN_TEXT_CHARS - out.length)).append('\n')
+                    }
                 }
+            for (i in 0 until node.childCount) {
+                if (out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) break
+                collect(node.getChild(i), out, seen, visited)
             }
-        for (i in 0 until node.childCount) {
-            if (out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) break
-            collect(node.getChild(i), out, seen, visited)
+        } finally {
+            recycleNode(node)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun recycleNode(node: AccessibilityNodeInfo) {
+        if (android.os.Build.VERSION.SDK_INT < 33) node.recycle()
     }
 
     private fun closeRecognizer() {

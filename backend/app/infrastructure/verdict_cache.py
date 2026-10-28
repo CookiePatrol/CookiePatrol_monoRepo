@@ -7,6 +7,9 @@ import threading
 import time
 from pathlib import Path
 
+MAX_CACHE_ENTRIES = 100_000
+CACHE_TTL_SECONDS = 24 * 60 * 60
+
 
 class SqliteVerdictCache:
     def __init__(self, namespace: str = "") -> None:
@@ -29,6 +32,9 @@ class SqliteVerdictCache:
                 "CREATE TABLE IF NOT EXISTS verdicts ("
                 "cache_key TEXT PRIMARY KEY, dangerous INTEGER NOT NULL, checked_at REAL NOT NULL)"
             )
+            self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_verdicts_checked_at ON verdicts(checked_at)"
+            )
 
     def _cache_key(self, url: str) -> str:
         value = f"{self._namespace}\0{url}" if self._namespace else url
@@ -42,7 +48,7 @@ class SqliteVerdictCache:
             ).fetchone()
             if row is None:
                 return None
-            if time.time() - row[1] >= 24 * 60 * 60:
+            if time.time() - row[1] >= CACHE_TTL_SECONDS:
                 self._connection.execute(
                     "DELETE FROM verdicts WHERE cache_key = ?", (self._cache_key(url),)
                 )
@@ -51,12 +57,25 @@ class SqliteVerdictCache:
 
     def set(self, url: str, dangerous: bool) -> None:
         with self._lock, self._connection:
+            now = time.time()
+            self._connection.execute(
+                "DELETE FROM verdicts WHERE checked_at <= ?", (now - CACHE_TTL_SECONDS,)
+            )
             self._connection.execute(
                 "INSERT INTO verdicts (cache_key, dangerous, checked_at) VALUES (?, ?, ?) "
                 "ON CONFLICT(cache_key) DO UPDATE SET "
                 "dangerous = excluded.dangerous, checked_at = excluded.checked_at",
-                (self._cache_key(url), int(dangerous), time.time()),
+                (self._cache_key(url), int(dangerous), now),
             )
+            excess = self._connection.execute(
+                "SELECT COUNT(*) - ? FROM verdicts", (MAX_CACHE_ENTRIES,)
+            ).fetchone()[0]
+            if excess > 0:
+                self._connection.execute(
+                    "DELETE FROM verdicts WHERE cache_key IN ("
+                    "SELECT cache_key FROM verdicts ORDER BY checked_at ASC LIMIT ?)",
+                    (excess,),
+                )
 
     def close(self) -> None:
         with self._lock:

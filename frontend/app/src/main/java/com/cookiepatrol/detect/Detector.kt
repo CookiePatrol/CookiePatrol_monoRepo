@@ -4,7 +4,6 @@ import android.content.Context
 import com.cookiepatrol.warn.Warning
 import java.net.IDN
 import java.net.URI
-import java.util.LinkedHashMap
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
@@ -141,11 +140,9 @@ object Detector {
     private const val WARNING_THRESHOLD = 3
     private const val LOOKUP_THRESHOLD = 2
     private const val WARNING_COOLDOWN_MS = 30_000L
-    private const val URL_CHECK_TTL_MS = 5 * 60_000L
-    private const val MAX_CHECKED_URLS = 500
     private const val MAX_URLS_PER_INSPECTION = 10
 
-    private val checkedAt = LinkedHashMap<String, Long>()
+    private val checkedUrls = UrlCheckCooldown()
     private val recentWarnings = HashMap<String, Long>()
     private val reputationExecutor = ThreadPoolExecutor(
         2,
@@ -173,39 +170,33 @@ object Detector {
         }
         if (!isLookupCandidate(riskScore)) return
 
-        val urlsToCheck = urls.take(MAX_URLS_PER_INSPECTION).filter { shouldCheckUrl(it) }
+        val urlsToCheck = urls.take(MAX_URLS_PER_INSPECTION).filter { checkedUrls.shouldCheck(it) }
         if (urlsToCheck.isEmpty()) return
         try {
             reputationExecutor.execute {
-                if (urlsToCheck.any { CheckApi.check(it) == CheckStatus.DANGEROUS }) {
+                var dangerousFound = false
+                for ((index, url) in urlsToCheck.withIndex()) {
+                    if (dangerousFound) {
+                        urlsToCheck.drop(index).forEach(checkedUrls::forget)
+                        break
+                    }
+                    when (CheckApi.check(url)) {
+                        CheckStatus.DANGEROUS -> dangerousFound = true
+                        CheckStatus.UNKNOWN -> checkedUrls.forget(url)
+                        CheckStatus.NOT_DETECTED -> Unit
+                    }
+                }
+                if (dangerousFound) {
                     showWarningOnce(context, "위험한 사이트로 확인된 링크가 있어요.")
                 }
             }
         } catch (_: RejectedExecutionException) {
-            forgetCheckedUrls(urlsToCheck)
+            urlsToCheck.forEach(checkedUrls::forget)
             showWarningOnce(
                 context,
                 "의심 링크가 몰려 안전 확인을 마치지 못했어요.",
             )
         }
-    }
-
-    @Synchronized
-    private fun forgetCheckedUrls(urls: List<String>) {
-        urls.forEach { checkedAt.remove(it) }
-    }
-
-    @Synchronized
-    private fun shouldCheckUrl(url: String): Boolean {
-        val now = System.currentTimeMillis()
-        val lastChecked = checkedAt[url]
-        if (lastChecked != null && now - lastChecked < URL_CHECK_TTL_MS) return false
-        checkedAt.remove(url)
-        checkedAt[url] = now
-        while (checkedAt.size > MAX_CHECKED_URLS) {
-            checkedAt.remove(checkedAt.entries.first().key)
-        }
-        return true
     }
 
     private fun showWarningOnce(context: Context, reason: String) {

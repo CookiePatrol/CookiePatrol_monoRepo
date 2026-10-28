@@ -5,18 +5,18 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-enum class CheckStatus { DANGEROUS, NOT_LISTED, UNKNOWN }
+enum class CheckStatus { DANGEROUS, NOT_DETECTED, UNKNOWN }
 
 internal fun statusForResponse(responseCode: Int, dangerous: Boolean?): CheckStatus = when {
     responseCode !in 200..299 || dangerous == null -> CheckStatus.UNKNOWN
     dangerous -> CheckStatus.DANGEROUS
-    else -> CheckStatus.NOT_LISTED
+    else -> CheckStatus.NOT_DETECTED
 }
 
 object CheckApi {
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
-    /** Safe Browsing 목록 판정. NOT_LISTED는 안전 보증이 아니며 UNKNOWN과 함께 로컬 경고를 유지한다. */
+    /** 서버의 Safe Browsing + AI 판정. NOT_DETECTED는 안전 보증이 아니다. */
     fun check(url: String): CheckStatus = runCatching {
         val conn = URL("$baseUrl/check").openConnection() as HttpURLConnection
         try {

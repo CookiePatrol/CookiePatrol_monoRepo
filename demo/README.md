@@ -11,14 +11,14 @@ cd backend
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-에뮬레이터에서 Android 앱은 기본값 `http://10.0.2.2:8000`으로 백엔드에 접속합니다. 실제 폰에서는 PC의 로컬 네트워크 주소를 빌드 속성으로 전달합니다.
+에뮬레이터에서 Android 앱은 기본값 `http://10.0.2.2:8000`으로 백엔드에 접속합니다. 실제 폰에서 URL 평판 조회를 쓰려면 TLS 인증서가 설정된 HTTPS 백엔드 주소를 빌드 속성으로 전달합니다.
 
 ```powershell
 cd frontend
-./gradlew.bat -PcookiePatrolApiBaseUrl=http://192.168.0.10:8000 assembleDebug
+./gradlew.bat -PcookiePatrolApiBaseUrl=https://cookiepatrol.local:8000 assembleDebug
 ```
 
-예시 주소를 PC의 실제 로컬 네트워크 주소로 바꾸고, 폰과 PC를 같은 네트워크에 연결하세요. 앱의 Android 매니페스트는 데모를 위해 HTTP 통신을 허용합니다.
+예시 주소를 실제 TLS 인증서가 설정된 HTTPS 백엔드 주소로 바꾸세요. 화면 데모 페이지는 PC의 `:8765` HTTP 서버를 사용해 같은 네트워크의 폰에서 열 수 있지만, 앱의 URL 평판 조회 API는 HTTPS로 제공해야 합니다. HTTP는 에뮬레이터 주소 `10.0.2.2`에만 허용됩니다.
 
 ## 2. 데모 페이지 실행
 
