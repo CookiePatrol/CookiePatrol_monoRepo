@@ -1,6 +1,8 @@
 package com.cookiepatrol.monitor
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.cookiepatrol.detect.Detector
@@ -11,20 +13,61 @@ import com.cookiepatrol.detect.Detector
  */
 class ScreenMonitor : AccessibilityService() {
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val scanRunnable = Runnable {
+        val out = StringBuilder()
+        val root = runCatching { rootInActiveWindow }.getOrNull()
+        if (root?.packageName != packageName) {
+            collect(root, out, HashSet(), intArrayOf(0))
+            Detector.inspect(this, out.toString())
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.packageName == packageName) return
-        val out = StringBuilder()
-        collect(rootInActiveWindow, out)
-        Detector.inspect(this, out.toString())
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED
+        ) return
+        // 화면이 연속 갱신될 때 마지막 화면만 한 번 읽어 중복 경고와 반복 순회를 줄인다.
+        mainHandler.removeCallbacks(scanRunnable)
+        mainHandler.postDelayed(scanRunnable, SCAN_DELAY_MS)
     }
 
-    private fun collect(node: AccessibilityNodeInfo?, out: StringBuilder) {
-        node ?: return
-        node.text?.let { out.appendLine(it) }
-        node.hintText?.let { out.appendLine(it) } // 입력란 안내문, 예: "주민등록번호 13자리"
-        node.contentDescription?.let { out.appendLine(it) }
-        for (i in 0 until node.childCount) collect(node.getChild(i), out)
+    private fun collect(
+        node: AccessibilityNodeInfo?,
+        out: StringBuilder,
+        seen: MutableSet<String>,
+        visited: IntArray,
+    ) {
+        if (node == null || out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) return
+        visited[0]++
+        listOfNotNull(node.text, node.hintText, node.contentDescription)
+            .map { it.toString() }
+            .filter { it.isNotBlank() && seen.add(it) }
+            .forEach { value ->
+                if (out.length < MAX_SCREEN_TEXT_CHARS) {
+                    out.append(value.take(MAX_SCREEN_TEXT_CHARS - out.length)).append('\n')
+                }
+            }
+        for (i in 0 until node.childCount) {
+            if (out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) break
+            collect(node.getChild(i), out, seen, visited)
+        }
     }
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        mainHandler.removeCallbacks(scanRunnable)
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(scanRunnable)
+        super.onDestroy()
+    }
+
+    private companion object {
+        const val SCAN_DELAY_MS = 350L
+        const val MAX_SCREEN_TEXT_CHARS = 12_000
+        const val MAX_NODES_PER_SCAN = 500
+    }
 }

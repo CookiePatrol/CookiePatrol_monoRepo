@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
@@ -28,6 +29,9 @@ private val REMOTE_CONTROL_APPS = setOf(
  */
 class NotificationMonitor : NotificationListenerService() {
 
+    private var installReceiverRegistered = false
+    private var downloadObserverRegistered = false
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
         val e = sbn.notification.extras
@@ -35,6 +39,7 @@ class NotificationMonitor : NotificationListenerService() {
             e.getCharSequence(Notification.EXTRA_TITLE),
             e.getCharSequence(Notification.EXTRA_TEXT),
             e.getCharSequence(Notification.EXTRA_BIG_TEXT),
+            e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString("\n"),
         ).joinToString("\n")
         Detector.inspect(this, text)
     }
@@ -79,12 +84,39 @@ class NotificationMonitor : NotificationListenerService() {
     }
 
     override fun onListenerConnected() {
-        registerReceiver(installReceiver, IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") })
-        contentResolver.registerContentObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI, true, downloadObserver)
+        if (!installReceiverRegistered) {
+            val filter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(installReceiver, filter, android.content.Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(installReceiver, filter)
+            }
+            installReceiverRegistered = true
+        }
+        if (!downloadObserverRegistered) {
+            contentResolver.registerContentObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI, true, downloadObserver)
+            downloadObserverRegistered = true
+        }
     }
 
     override fun onListenerDisconnected() {
-        unregisterReceiver(installReceiver)
-        contentResolver.unregisterContentObserver(downloadObserver)
+        unregisterMonitors()
+    }
+
+    override fun onDestroy() {
+        unregisterMonitors()
+        super.onDestroy()
+    }
+
+    private fun unregisterMonitors() {
+        if (installReceiverRegistered) {
+            runCatching { unregisterReceiver(installReceiver) }
+            installReceiverRegistered = false
+        }
+        if (downloadObserverRegistered) {
+            runCatching { contentResolver.unregisterContentObserver(downloadObserver) }
+            downloadObserverRegistered = false
+        }
     }
 }
