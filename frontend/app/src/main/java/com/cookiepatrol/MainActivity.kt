@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("화면 속 링크도 살펴보기", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                            Text("선택 · 데모용 기능이에요. 다른 앱 화면의 글자와 링크를 읽어요.",
+                            Text("선택 · 데모용 기능이에요. 다른 앱 화면의 글자와 이미지 속 글자를 기기에서 읽어요.",
                                 fontSize = 22.sp, lineHeight = 30.sp)
                             if (screenEnabled) {
                                 Text("✓ 화면 감시 켜짐", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
@@ -123,11 +123,15 @@ class MainActivity : ComponentActivity() {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("링크 검사와 개인정보", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                "알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 판별을 위해 데모 서버와 Google Safe Browsing으로 전송됩니다.",
+                                "메시지 유형 알림과 기본 문자·카톡 앱 알림, 선택한 화면 문구를 기기 안에서 검사해요. 의심 링크의 전체 주소는 판별을 위해 데모 서버와 Google Safe Browsing으로 전송됩니다.",
                                 fontSize = 20.sp, lineHeight = 29.sp,
                             )
                             Text(
                                 "링크 주소에 개인 정보나 로그인 토큰이 들어 있을 수 있어요. 서버는 주소 원문 대신 변환값을 최대 24시간 저장하지만, 이 값도 완전한 익명 정보는 아닙니다.",
+                                fontSize = 20.sp, lineHeight = 29.sp,
+                            )
+                            Text(
+                                "화면 OCR은 켜져 있을 때만 화면을 잠깐 캡처해 기기 안에서 글자를 읽습니다. 캡처 이미지는 저장하거나 서버로 보내지 않습니다.",
                                 fontSize = 20.sp, lineHeight = 29.sp,
                             )
                         }

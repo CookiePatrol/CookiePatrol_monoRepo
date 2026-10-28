@@ -1,3 +1,3 @@
 <resources>
-    <string name="screen_monitor_desc">화면에 보이는 링크와 입력란을 살펴보고, 사기(피싱)가 의심되면 알려드려요.</string>
+    <string name="screen_monitor_desc">화면에 보이는 글자와 이미지 속 글자를 기기에서 살펴보고, 사기(피싱)가 의심되면 알려드려요.</string>
 </resources>

@@ -1,27 +1,37 @@
 package com.cookiepatrol.monitor
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
+import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.cookiepatrol.detect.Detector
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import com.google.mlkit.vision.common.InputImage
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * 데모 전용: 접근성 서비스로 다른 앱 화면의 글자·링크·입력란을 읽는다.
- * 플레이스토어 심사에서 막히므로 출시 버전에서는 NotificationMonitor만 남길 것.
- */
+/** Demo-only screen reading: accessibility text plus on-device OCR of the visible screen. */
 class ScreenMonitor : AccessibilityService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val scanRunnable = Runnable {
-        val out = StringBuilder()
-        val root = runCatching { rootInActiveWindow }.getOrNull()
-        if (root?.packageName != packageName) {
-            collect(root, out, HashSet(), intArrayOf(0))
-            Detector.inspect(this, out.toString())
-        }
+    private val ocrExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "cookiepatrol-screen-ocr").apply { isDaemon = true }
     }
+    private val recognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+    private val scanInProgress = AtomicBoolean(false)
+    private val scanAgain = AtomicBoolean(false)
+    private val destroyed = AtomicBoolean(false)
+    private val recognizerClosed = AtomicBoolean(false)
+    private var lastScreenshotAt = 0L
+
+    private val scanRunnable = Runnable { scanActiveWindow() }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.packageName == packageName) return
@@ -29,9 +39,111 @@ class ScreenMonitor : AccessibilityService() {
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED
         ) return
-        // 화면이 연속 갱신될 때 마지막 화면만 한 번 읽어 중복 경고와 반복 순회를 줄인다.
+
         mainHandler.removeCallbacks(scanRunnable)
         mainHandler.postDelayed(scanRunnable, SCAN_DELAY_MS)
+    }
+
+    private fun scanActiveWindow() {
+        val root = runCatching { rootInActiveWindow }.getOrNull() ?: return
+        if (root.packageName == packageName) return
+
+        if (!scanInProgress.compareAndSet(false, true)) {
+            scanAgain.set(true)
+            return
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val delay = MIN_SCREENSHOT_INTERVAL_MS - (now - lastScreenshotAt)
+        if (delay > 0) {
+            scanInProgress.set(false)
+            mainHandler.removeCallbacks(scanRunnable)
+            mainHandler.postDelayed(scanRunnable, delay)
+            return
+        }
+
+        lastScreenshotAt = now
+        val accessibleText = StringBuilder()
+        collect(root, accessibleText, HashSet(), intArrayOf(0))
+        val textSnapshot = accessibleText.toString()
+
+        val callback = object : TakeScreenshotCallback {
+            override fun onSuccess(screenshot: ScreenshotResult) {
+                recognizeScreenshot(screenshot, textSnapshot)
+            }
+
+            override fun onFailure(errorCode: Int) {
+                inspectText(textSnapshot)
+                finishScan()
+            }
+        }
+
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                takeScreenshotOfWindow(root.windowId, ocrExecutor, callback)
+            } else {
+                takeScreenshot(Display.DEFAULT_DISPLAY, ocrExecutor, callback)
+            }
+        } catch (_: RuntimeException) {
+            inspectText(textSnapshot)
+            finishScan()
+        }
+    }
+
+    private fun recognizeScreenshot(screenshot: ScreenshotResult, accessibleText: String) {
+        val buffer = screenshot.hardwareBuffer
+        val bitmap = try {
+            Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
+                ?.copy(Bitmap.Config.ARGB_8888, false)
+        } catch (_: RuntimeException) {
+            null
+        } finally {
+            buffer.close()
+        }
+
+        if (bitmap == null) {
+            inspectText(accessibleText)
+            finishScan()
+            return
+        }
+
+        val task = runCatching { recognizer.process(InputImage.fromBitmap(bitmap, 0)) }.getOrNull()
+        if (task == null) {
+            bitmap.recycle()
+            inspectText(accessibleText)
+            finishScan()
+            return
+        }
+
+        task.addOnCompleteListener(ocrExecutor) { result ->
+            val recognizedText = if (result.isSuccessful) result.result?.text.orEmpty() else ""
+            inspectText(accessibleText, recognizedText)
+            bitmap.recycle()
+            finishScan()
+        }
+    }
+
+    private fun inspectText(accessibleText: String, recognizedText: String = "") {
+        val combined = buildString {
+            append(accessibleText)
+            if (recognizedText.isNotBlank() && length < MAX_SCREEN_TEXT_CHARS) {
+                append('\n').append(recognizedText.take(MAX_SCREEN_TEXT_CHARS - length))
+            }
+        }
+        if (combined.isNotBlank()) Detector.inspect(this, combined)
+    }
+
+    private fun finishScan() {
+        scanInProgress.set(false)
+        if (destroyed.get()) {
+            closeRecognizer()
+            ocrExecutor.shutdown()
+            return
+        }
+        if (scanAgain.getAndSet(false)) {
+            mainHandler.removeCallbacks(scanRunnable)
+            mainHandler.postDelayed(scanRunnable, SCAN_DELAY_MS)
+        }
     }
 
     private fun collect(
@@ -56,17 +168,29 @@ class ScreenMonitor : AccessibilityService() {
         }
     }
 
+    private fun closeRecognizer() {
+        if (recognizerClosed.compareAndSet(false, true)) recognizer.close()
+    }
+
     override fun onInterrupt() {
         mainHandler.removeCallbacks(scanRunnable)
+        scanAgain.set(false)
     }
 
     override fun onDestroy() {
+        destroyed.set(true)
         mainHandler.removeCallbacks(scanRunnable)
+        scanAgain.set(false)
+        if (!scanInProgress.get()) {
+            closeRecognizer()
+            ocrExecutor.shutdown()
+        }
         super.onDestroy()
     }
 
     private companion object {
         const val SCAN_DELAY_MS = 350L
+        const val MIN_SCREENSHOT_INTERVAL_MS = 1_000L
         const val MAX_SCREEN_TEXT_CHARS = 12_000
         const val MAX_NODES_PER_SCAN = 500
     }

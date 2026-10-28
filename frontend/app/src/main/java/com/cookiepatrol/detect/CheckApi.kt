@@ -7,6 +7,12 @@ import java.net.URL
 
 enum class CheckStatus { DANGEROUS, NOT_LISTED, UNKNOWN }
 
+internal fun statusForResponse(responseCode: Int, dangerous: Boolean?): CheckStatus = when {
+    responseCode !in 200..299 || dangerous == null -> CheckStatus.UNKNOWN
+    dangerous -> CheckStatus.DANGEROUS
+    else -> CheckStatus.NOT_LISTED
+}
+
 object CheckApi {
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
@@ -21,13 +27,10 @@ object CheckApi {
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write(JSONObject().put("url", url).toString().toByteArray()) }
 
-            if (conn.responseCode !in 200..299) {
-                CheckStatus.UNKNOWN
-            } else if (JSONObject(conn.inputStream.bufferedReader().readText()).getBoolean("dangerous")) {
-                CheckStatus.DANGEROUS
-            } else {
-                CheckStatus.NOT_LISTED
-            }
+            val responseCode = conn.responseCode
+            if (responseCode !in 200..299) return CheckStatus.UNKNOWN
+            val dangerous = JSONObject(conn.inputStream.bufferedReader().readText()).getBoolean("dangerous")
+            statusForResponse(responseCode, dangerous)
         } finally {
             conn.disconnect()
         }

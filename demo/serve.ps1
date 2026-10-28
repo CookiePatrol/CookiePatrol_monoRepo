@@ -1,7 +1,12 @@
 param([int]$Port = 8765)
 
-$pagePath = Join-Path $PSScriptRoot 'site/index.html'
-$pageBytes = [System.IO.File]::ReadAllBytes($pagePath)
+$pages = @{
+    '/' = @{ Bytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'site/index.html')); Type = 'text/html; charset=utf-8' }
+    '/account-security' = @{ Bytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'site/account-security.html')); Type = 'text/html; charset=utf-8' }
+    '/reward-ad' = @{ Bytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'site/reward-ad.html')); Type = 'text/html; charset=utf-8' }
+    '/image-ad' = @{ Bytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'site/image-ad.html')); Type = 'text/html; charset=utf-8' }
+    '/reward-banner.svg' = @{ Bytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'site/reward-banner.svg')); Type = 'image/svg+xml; charset=utf-8' }
+}
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
 $listener.Start()
 
@@ -21,10 +26,20 @@ try {
             $requestLine = $reader.ReadLine()
             do { $headerLine = $reader.ReadLine() } while ($null -ne $headerLine -and $headerLine.Length -gt 0)
 
-            if ($requestLine -match '^GET /(?:\?[^ ]*)? HTTP/') {
+            $path = $null
+            if ($requestLine -match '^GET (/[^ ]*) HTTP/') {
+                try {
+                    $path = ([uri]::new("http://localhost$($Matches[1])")).AbsolutePath.TrimEnd('/')
+                    if ([string]::IsNullOrEmpty($path)) { $path = '/' }
+                } catch {
+                    $path = $null
+                }
+            }
+
+            if ($null -ne $path -and $pages.ContainsKey($path)) {
                 $status = '200 OK'
-                $body = $pageBytes
-                $contentType = 'text/html; charset=utf-8'
+                $body = $pages[$path].Bytes
+                $contentType = $pages[$path].Type
             } else {
                 $status = '404 Not Found'
                 $body = [System.Text.Encoding]::UTF8.GetBytes('Not found')
