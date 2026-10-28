@@ -101,21 +101,34 @@ fun PatrolIcon(symbol: PatrolSymbol, tint: Color, modifier: Modifier = Modifier)
 }
 
 @Composable
-fun PatrolCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun PatrolCard(
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) { Column(content = content) }
 }
 
 @Composable
-fun PatrolButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PatrolButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+) {
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().heightIn(min = 72.dp),
         shape = RoundedCornerShape(18.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = containerColor, contentColor = contentColor,
+        ),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
     ) { Text(label, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold) }
 }
