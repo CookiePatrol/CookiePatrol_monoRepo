@@ -23,7 +23,7 @@ object CheckApi {
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.connectTimeout = 3000
-            conn.readTimeout = 3000
+            conn.readTimeout = 30000
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write(JSONObject().put("url", url).toString().toByteArray()) }
 

@@ -1,7 +1,10 @@
-"""Google Safe Browsing Lookup API v4 adapter."""
+"""Google Safe Browsing Lookup API v4 with provider-directed positive caching."""
 
+import hashlib
 import os
 import re
+import threading
+import time
 
 import httpx
 
@@ -11,12 +14,19 @@ from app.domain.url_check import ThreatCheckUnavailable
 class SafeBrowsingChecker:
     def __init__(self) -> None:
         self._api_key = os.environ.get("SAFE_BROWSING_API_KEY", "").strip()
-        if not self._api_key:
-            raise ThreatCheckUnavailable("SAFE_BROWSING_API_KEY is required")
+        self._positive_cache: dict[str, float] = {}
+        self._lock = threading.Lock()
 
     def is_dangerous(self, url: str) -> bool:
+        if not self._api_key:
+            raise ThreatCheckUnavailable("SAFE_BROWSING_API_KEY is required")
+        key = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        now = time.monotonic()
+        with self._lock:
+            self._positive_cache = {k: expiry for k, expiry in self._positive_cache.items() if expiry > now}
+            if key in self._positive_cache:
+                return True
         try:
-            # Keep the key out of URLs, HTTP request logs and exception messages.
             with httpx.Client(timeout=5.0) as client:
                 response = client.post(
                     "https://safebrowsing.googleapis.com/v4/threatMatches:find",
@@ -24,10 +34,8 @@ class SafeBrowsingChecker:
                     json={
                         "client": {"clientId": "cookiepatrol", "clientVersion": "0.1.0"},
                         "threatInfo": {
-                            "threatTypes": [
-                                "MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
-                                "POTENTIALLY_HARMFUL_APPLICATION",
-                            ],
+                            "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
+                                            "POTENTIALLY_HARMFUL_APPLICATION"],
                             "platformTypes": ["ANY_PLATFORM"],
                             "threatEntryTypes": ["URL"],
                             "threatEntries": [{"url": url}],
@@ -41,33 +49,27 @@ class SafeBrowsingChecker:
 
         if data == {}:
             return False
-        if not isinstance(data, dict) or set(data) != {"matches"}:
-            raise ThreatCheckUnavailable("Invalid Safe Browsing response")
-        matches = data["matches"]
-        if not isinstance(matches, list):
-            raise ThreatCheckUnavailable("Invalid Safe Browsing matches")
-        for match in matches:
-            if not isinstance(match, dict):
-                raise ThreatCheckUnavailable("Invalid Safe Browsing match")
-            threat = match.get("threat")
-            if (
-                match.get("threatType") not in (
-                    "MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
-                    "POTENTIALLY_HARMFUL_APPLICATION",
-                )
-                or match.get("platformType") not in (
-                    "WINDOWS", "LINUX", "ANDROID", "OSX", "IOS",
-                    "ANY_PLATFORM", "ALL_PLATFORMS", "CHROME",
-                )
-                or match.get("threatEntryType") != "URL"
-                or not isinstance(threat, dict)
-                or not isinstance(threat.get("url"), str)
-                or not threat["url"].strip()
-            ):
-                raise ThreatCheckUnavailable("Invalid Safe Browsing match")
-            if "cacheDuration" in match and (
-                not isinstance(match["cacheDuration"], str)
-                or re.fullmatch(r"\d+(?:\.\d{1,9})?s", match["cacheDuration"]) is None
-            ):
-                raise ThreatCheckUnavailable("Invalid Safe Browsing cache duration")
-        return bool(matches)
+        try:
+            if not isinstance(data, dict) or set(data) != {"matches"} or not isinstance(data["matches"], list):
+                raise ValueError()
+            durations = []
+            for match in data["matches"]:
+                if (
+                    match["threatType"] not in ("MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
+                                                "POTENTIALLY_HARMFUL_APPLICATION")
+                    or match["platformType"] not in ("WINDOWS", "LINUX", "ANDROID", "OSX", "IOS",
+                                                      "ANY_PLATFORM", "ALL_PLATFORMS", "CHROME")
+                    or match["threatEntryType"] != "URL"
+                    or not isinstance(match["threat"]["url"], str)
+                    or not match["threat"]["url"].strip()
+                    or not isinstance(match["cacheDuration"], str)
+                    or re.fullmatch(r"\d+(?:\.\d{1,9})?s", match["cacheDuration"]) is None
+                ):
+                    raise ValueError()
+                durations.append(float(match["cacheDuration"][:-1]))
+        except (KeyError, TypeError, ValueError, OverflowError):
+            raise ThreatCheckUnavailable("Invalid Safe Browsing response") from None
+        if durations:
+            with self._lock:
+                self._positive_cache[key] = time.monotonic() + max(durations)
+        return bool(durations)

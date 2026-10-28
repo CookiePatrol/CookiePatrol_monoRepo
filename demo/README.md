@@ -4,11 +4,11 @@
 
 ## 1. 백엔드 실행
 
-Google Safe Browsing API 키를 `SAFE_BROWSING_API_KEY` 환경 변수에 설정한 뒤 실행합니다. 키는 저장소에 추가하지 마세요.
+`backend/.env` 파일에 Google Safe Browsing 키(`SAFE_BROWSING_API_KEY`)와 OpenAI 키(`OPENAI_API_KEY`)를 설정한 뒤 실행합니다. Google에서 위험으로 확인되면 AI 호출을 생략하고, 미등록 또는 Google 조회 실패 시 AI가 추가 분석합니다. 파일이 없으면 `.env.example`을 `.env`로 복사하세요. 키는 저장소에 추가하지 마세요.
 
 ```powershell
 cd backend
-uv run fastapi dev app/main.py
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 에뮬레이터에서 Android 앱은 기본값 `http://10.0.2.2:8000`으로 백엔드에 접속합니다. 실제 폰에서는 PC의 로컬 네트워크 주소를 빌드 속성으로 전달합니다.
@@ -80,9 +80,9 @@ powershell -ExecutionPolicy Bypass -File demo/serve.ps1
 ## 5. 기대 결과와 한계
 
 - 의심 문장과 데모 페이지에서는 로컬 위험 신호 경고가 즉시 나타납니다. 실제 앱 설치나 개인정보 입력은 일어나지 않습니다.
-- Safe Browsing에 등록되지 않은 데모 주소는 `dangerous: false` 또는 조회 불가 시 `unknown`이 될 수 있습니다. `false`는 안전 판정 보증이 아닙니다.
+- AI가 위험 신호를 찾지 못한 데모 주소는 `dangerous: false` 또는 조회 불가 시 `unknown`이 될 수 있습니다. `false`는 안전 판정 보증이 아닙니다.
 - 서버 조회 실패나 API 키 누락으로도 로컬 경고가 사라지지 않아야 합니다.
-- 의심 URL의 전체 주소는 백엔드와 Google Safe Browsing으로 전송됩니다. URL의 경로·쿼리에 개인 정보나 토큰을 넣지 마세요. 서버 캐시는 주소 원문 대신 SHA-256 키를 저장하지만, 이는 익명화가 아닙니다.
+- 의심 URL의 전체 주소는 백엔드와 Google Safe Browsing으로 전송되며, 추가 분석 시 OpenAI로도 전송됩니다. URL의 경로·쿼리에 개인 정보나 토큰을 넣지 마세요. 서버 캐시는 주소 원문 대신 SHA-256 키를 저장하지만, 이는 익명화가 아닙니다.
 - 이 페이지는 교육용 시뮬레이션입니다. 실제 문자 앱·제조사별 접근성 트리·알림 형식은 폰에 따라 다르므로 실기기 확인이 필요합니다.
 
 ## 6. 자동 확인
