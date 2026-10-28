@@ -121,7 +121,7 @@
 | `frontend/` | 안드로이드 (Kotlin + Compose) | 감시, 점수 합산, 경고 |
 | `backend/` | FastAPI (DDD 레이어드) | Google Safe Browsing 우선 조회 + OpenAI 추가 분석 + 캐시. API 키를 앱에 넣지 않기 위함 |
 
-API: `POST /check` `{"url": "..."}` → `{"dangerous": true | false}`. HTTP 503은 조회 실패를 뜻하며, 클라이언트는 `unknown`으로 처리하고 로컬 경고를 유지한다.
+API: `POST /check` `{"url": "..."}` → `{"dangerous": true | false}`. HTTP 503은 조회 실패, 429는 요청 제한을 뜻하며, 클라이언트는 둘 다 `unknown`으로 처리한다. 기존 로컬 경고는 유지하고, 일시 실패한 URL은 5분간 재조회에서 제외하지 않는다.
 
 ## 9. 남은 일
 
@@ -139,5 +139,12 @@ API: `POST /check` `{"url": "..."}` → `{"dangerous": true | false}`. HTTP 503�
 - [x] URL user-info를 제거해 실제 호스트를 평판 조회하고, 국제화 도메인은 IDN 형식으로 변환
 - [x] 평판 조회 worker 수와 건별 URL 수 제한
 - [x] 데모 접근성 서비스에 기기 내 한국어 OCR을 추가해 이미지형 광고 문구 검사
+- [x] OCR 텍스트가 접근성 텍스트 길이 제한에 밀려 누락되지 않도록 입력 예산을 분배하고 회귀 테스트 추가
+- [x] 일시적인 URL 조회 실패 후 재시도할 수 있도록 로컬 조회 쿨다운을 해제하고 테스트 추가
+- [x] 백엔드 요청을 IP별 분당 60회로 제한하고 429·재시도 헤더 테스트 추가
+- [x] SQLite 판정 캐시와 Safe Browsing 메모리 캐시에 크기 상한·만료 정리 추가
+- [x] 릴리스는 HTTPS만 허용하고 디버그 앱은 에뮬레이터 백엔드 주소만 HTTP 허용
+- [x] 앱 아이콘 누락과 KTX URI 경고를 정리
+- [x] 화면 순회 예외·종료 시 OCR 이미지 버퍼와 접근성 노드 정리
 - [ ] 데모 폰에서 다운로드 감지, 원격제어 앱 패키지명, 접근성 화면 읽기 확인 (`demo/README.md` 점검표)
 - [ ] 면책·저작권을 포함한 이용약관 문구 확정

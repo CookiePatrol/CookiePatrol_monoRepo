@@ -44,6 +44,26 @@ def test_cache_expiration_and_refresh(cache, monkeypatch):
     assert cache.get("https://example.com") is True
 
 
+def test_cache_prunes_expired_rows_and_caps_storage(cache, monkeypatch):
+    now = [1_000.0]
+    monkeypatch.setattr(verdict_cache.time, "time", lambda: now[0])
+    monkeypatch.setattr(verdict_cache, "CACHE_TTL_SECONDS", 10)
+    monkeypatch.setattr(verdict_cache, "MAX_CACHE_ENTRIES", 2)
+
+    cache.set("https://expired.example", False)
+    now[0] += 11
+    cache.set("https://one.example", False)
+    cache.set("https://two.example", True)
+    cache.set("https://three.example", False)
+
+    rows = cache._connection.execute("SELECT cache_key FROM verdicts").fetchall()
+    assert len(rows) == 2
+    assert cache.get("https://expired.example") is None
+    assert cache.get("https://one.example") is None
+    assert cache.get("https://two.example") is True
+    assert cache.get("https://three.example") is False
+
+
 def test_cache_persists(cache):
     cache.set("https://example.com", True)
     other = SqliteVerdictCache()

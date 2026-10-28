@@ -5,7 +5,7 @@ from app.application.check_url import CheckUrl
 from app.domain.url_check import ThreatCheckUnavailable
 from app import infrastructure, presentation
 from app.main import app
-from app.presentation import close_check_url, get_check_url
+from app.presentation import ClientRateLimiter, close_check_url, get_check_url
 
 
 class FakeChecker:
@@ -149,3 +149,34 @@ def test_close_check_url_closes_cache(monkeypatch):
 
     assert cache.closed
     assert presentation._check_url is None
+
+
+def test_rate_limiter_enforces_window_and_bounds_client_state():
+    limiter = ClientRateLimiter(limit=2, window_seconds=10, max_clients=2)
+
+    assert limiter.retry_after("first", now=0) is None
+    assert limiter.retry_after("first", now=1) is None
+    assert limiter.retry_after("first", now=2) == 8
+    assert limiter.retry_after("second", now=2) is None
+    assert limiter.retry_after("third", now=3) is None
+    assert len(limiter._requests) == 2
+    assert limiter.retry_after("first", now=10) is None
+
+
+def test_check_endpoint_returns_retry_after_when_rate_limited(monkeypatch):
+    checker = FakeChecker(dangerous=True)
+    limiter = ClientRateLimiter(limit=1, window_seconds=60)
+    monkeypatch.setattr(presentation.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(presentation, "_check_rate_limiter", limiter)
+    app.dependency_overrides[get_check_url] = lambda: CheckUrl(checker, FakeCache())
+    try:
+        with TestClient(app) as test_client:
+            first = test_client.post("/check", json={"url": "https://example.com"})
+            second = test_client.post("/check", json={"url": "https://another.example"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.headers["retry-after"] == "60"
+    assert checker.calls == 1

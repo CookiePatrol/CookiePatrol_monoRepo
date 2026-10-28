@@ -123,9 +123,18 @@ def test_google_no_match(mock_google, payload):
     assert mock_google(lambda request: httpx.Response(200, json=payload)).is_dangerous("https://example.com") is False
 
 
+def test_google_zero_cache_duration_still_reports_threat(mock_google):
+    payload = {"matches": [{**VALID_MATCH, "cacheDuration": "0s"}]}
+    checker = mock_google(lambda request: httpx.Response(200, json=payload))
+
+    assert checker.is_dangerous("https://example.com") is True
+    assert checker._positive_cache == {}
+
+
 @pytest.mark.parametrize("payload", [None, [], True, {"error": "bad"}, {"matches": None},
     {"matches": [{}]}, {"matches": [None]},
     {"matches": [{**VALID_MATCH, "cacheDuration": "-1s"}]},
+    {"matches": [{**VALID_MATCH, "cacheDuration": f"{'9' * 400}s"}]},
     {"matches": [{**VALID_MATCH, "threat": {}}]},
     {"matches": [{**VALID_MATCH, "threatType": "UNKNOWN"}]},
 ])
@@ -151,6 +160,23 @@ def test_google_missing_key(monkeypatch):
     monkeypatch.delenv("SAFE_BROWSING_API_KEY", raising=False)
     with pytest.raises(ThreatCheckUnavailable):
         SafeBrowsingChecker().is_dangerous("https://example.com")
+
+
+def test_google_positive_cache_is_bounded(mock_google, monkeypatch):
+    monkeypatch.setattr(safe_browsing, "MAX_POSITIVE_CACHE_ENTRIES", 2)
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"matches": [VALID_MATCH]})
+
+    checker = mock_google(handler)
+    assert checker.is_dangerous("https://one.example")
+    assert checker.is_dangerous("https://two.example")
+    assert checker.is_dangerous("https://three.example")
+    assert len(checker._positive_cache) == 2
+    assert checker.is_dangerous("https://one.example")
+    assert len(calls) == 4
 
 
 @pytest.mark.parametrize("google_payload,expected_hosts,expected", [

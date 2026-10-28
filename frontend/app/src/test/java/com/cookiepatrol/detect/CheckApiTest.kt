@@ -7,7 +7,7 @@ class CheckApiTest {
     @Test
     fun mapsSuccessfulProviderVerdicts() {
         assertEquals(CheckStatus.DANGEROUS, statusForResponse(200, true))
-        assertEquals(CheckStatus.NOT_LISTED, statusForResponse(200, false))
+        assertEquals(CheckStatus.NOT_DETECTED, statusForResponse(200, false))
     }
 
     @Test

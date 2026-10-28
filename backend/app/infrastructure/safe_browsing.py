@@ -1,20 +1,24 @@
 """Google Safe Browsing Lookup API v4 with provider-directed positive caching."""
 
 import hashlib
+import math
 import os
 import re
 import threading
 import time
+from collections import OrderedDict
 
 import httpx
 
 from app.domain.url_check import ThreatCheckUnavailable
 
+MAX_POSITIVE_CACHE_ENTRIES = 10_000
+
 
 class SafeBrowsingChecker:
     def __init__(self) -> None:
         self._api_key = os.environ.get("SAFE_BROWSING_API_KEY", "").strip()
-        self._positive_cache: dict[str, float] = {}
+        self._positive_cache: OrderedDict[str, float] = OrderedDict()
         self._lock = threading.Lock()
 
     def is_dangerous(self, url: str) -> bool:
@@ -23,8 +27,11 @@ class SafeBrowsingChecker:
         key = hashlib.sha256(url.encode("utf-8")).hexdigest()
         now = time.monotonic()
         with self._lock:
-            self._positive_cache = {k: expiry for k, expiry in self._positive_cache.items() if expiry > now}
+            self._positive_cache = OrderedDict(
+                (k, expiry) for k, expiry in self._positive_cache.items() if expiry > now
+            )
             if key in self._positive_cache:
+                self._positive_cache.move_to_end(key)
                 return True
         try:
             with httpx.Client(timeout=5.0) as client:
@@ -66,10 +73,16 @@ class SafeBrowsingChecker:
                     or re.fullmatch(r"\d+(?:\.\d{1,9})?s", match["cacheDuration"]) is None
                 ):
                     raise ValueError()
-                durations.append(float(match["cacheDuration"][:-1]))
+                duration = float(match["cacheDuration"][:-1])
+                if not math.isfinite(duration) or duration < 0:
+                    raise ValueError()
+                durations.append(duration)
         except (KeyError, TypeError, ValueError, OverflowError):
             raise ThreatCheckUnavailable("Invalid Safe Browsing response") from None
-        if durations:
+        if durations and max(durations) > 0:
             with self._lock:
                 self._positive_cache[key] = time.monotonic() + max(durations)
+                self._positive_cache.move_to_end(key)
+                while len(self._positive_cache) > MAX_POSITIVE_CACHE_ENTRIES:
+                    self._positive_cache.popitem(last=False)
         return bool(durations)

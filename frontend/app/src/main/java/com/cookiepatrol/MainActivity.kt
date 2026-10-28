@@ -3,13 +3,13 @@ package com.cookiepatrol
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.net.toUri
 import com.cookiepatrol.monitor.NotificationMonitor
 import com.cookiepatrol.monitor.ScreenMonitor
 import com.cookiepatrol.ui.CookiePatrolTheme
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
             ProtectionSetting("다운로드 감시", "앱 설치 파일을 받으면 알려드려요", PatrolSymbol.DOWNLOAD,
                 Environment.isExternalStorageManager()) {
                 startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName")))
+                    "package:$packageName".toUri()))
             },
         )
         val screenComponent = ComponentName(this, ScreenMonitor::class.java)
