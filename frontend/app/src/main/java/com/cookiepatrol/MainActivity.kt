@@ -19,6 +19,8 @@ import com.cookiepatrol.ui.ProtectionSetting
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The starting window owns the logo; restore the app theme before drawing home.
+        setTheme(R.style.Theme_CookiePatrol)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
     }

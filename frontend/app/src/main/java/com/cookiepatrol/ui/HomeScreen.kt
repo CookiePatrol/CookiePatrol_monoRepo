@@ -1,14 +1,18 @@
 package com.cookiepatrol.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -39,25 +44,36 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
     ) {
         Column(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("COOKIE PATROL", color = colors.onSurfaceVariant, fontSize = 20.sp,
-                letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                letterSpacing = 0.7.sp, fontWeight = FontWeight.SemiBold, fontStyle = FontStyle.Italic)
             Text("안심을 더하는\n작은 습관", fontSize = 38.sp, lineHeight = 46.sp,
-                letterSpacing = (-1).sp, fontWeight = FontWeight.Bold)
+                letterSpacing = (-0.3).sp, fontWeight = FontWeight.Bold)
         }
-        PatrolCard {
+        PatrolCard(containerColor = colors.primary) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    PatrolIcon(PatrolSymbol.SHIELD, if (next == null) colors.secondary else colors.primary)
+                    PatrolIcon(PatrolSymbol.SHIELD, colors.onPrimary)
                     Text("기본 설정 ${settings.count { it.enabled }} / ${settings.size}", fontSize = 22.sp,
-                        fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+                        fontWeight = FontWeight.SemiBold, color = colors.onPrimary)
                 }
                 Text(if (next == null) "설정이 완료됐어요" else "보호 설정을\n완성해요", fontSize = 32.sp,
-                    lineHeight = 40.sp, letterSpacing = (-0.8).sp, fontWeight = FontWeight.Bold)
+                    lineHeight = 40.sp, letterSpacing = (-0.3).sp, fontWeight = FontWeight.Bold,
+                    color = colors.onPrimary)
                 Text(
                     if (next == null) "평소처럼 휴대폰을 사용하세요. 위험 신호를 발견하면 알려드려요."
                     else "한 번 설정하면, 의심스러운 문자와 링크를 대신 살펴봐요.",
-                    fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant,
+                    fontSize = 22.sp, lineHeight = 32.sp, color = colors.onPrimary,
                 )
-                if (next != null) PatrolButton("${next.title} 켜기", next.open)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    settings.forEach { setting ->
+                        Box(Modifier.weight(1f).height(6.dp)
+                            .background(
+                                if (setting.enabled) colors.onPrimary else colors.onPrimary.copy(alpha = 0.18f),
+                                RoundedCornerShape(3.dp),
+                            ))
+                    }
+                }
+                if (next != null) PatrolButton("${next.title} 켜기", next.open,
+                    containerColor = colors.surface, contentColor = colors.onSurface)
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -119,12 +135,17 @@ private fun SettingRow(setting: ProtectionSetting) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        PatrolIcon(setting.symbol, if (setting.enabled) colors.secondary else colors.primary)
+        PatrolIcon(setting.symbol, colors.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(setting.title, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold)
             Text(setting.description, fontSize = 20.sp, lineHeight = 28.sp, color = colors.onSurfaceVariant)
             Text(if (setting.enabled) "✓ 켜짐" else "눌러서 켜기", fontSize = 20.sp, lineHeight = 28.sp,
-                color = if (setting.enabled) colors.secondary else colors.primary, fontWeight = FontWeight.SemiBold)
+                modifier = Modifier.background(
+                    if (setting.enabled) colors.surfaceVariant else colors.primaryContainer,
+                    RoundedCornerShape(8.dp),
+                ).padding(horizontal = 10.dp, vertical = 4.dp),
+                color = if (setting.enabled) colors.onSurface else colors.onPrimaryContainer,
+                fontWeight = FontWeight.SemiBold)
         }
         if (!setting.enabled) Text("›", fontSize = 30.sp, color = colors.onSurfaceVariant)
     }

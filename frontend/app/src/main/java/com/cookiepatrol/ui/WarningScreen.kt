@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -26,7 +27,8 @@ fun WarningScreen(reason: String, action: String, onDismiss: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         Text("COOKIE PATROL", Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-            fontSize = 20.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold,
+            fontSize = 20.sp, letterSpacing = 0.7.sp, fontWeight = FontWeight.SemiBold,
+            fontStyle = FontStyle.Italic,
             color = colors.onSurfaceVariant)
         PatrolCard {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -35,7 +37,7 @@ fun WarningScreen(reason: String, action: String, onDismiss: () -> Unit) {
                     Text("잠깐, 확인해주세요", color = colors.error,
                         fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                     Text("사기(피싱)일 수\n있어요", fontSize = 36.sp, lineHeight = 46.sp,
-                        letterSpacing = (-1).sp, fontWeight = FontWeight.Bold)
+                        letterSpacing = (-0.3).sp, fontWeight = FontWeight.Bold)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("발견한 이유", fontSize = 22.sp, color = colors.onSurfaceVariant,
