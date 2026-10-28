@@ -33,8 +33,9 @@ class NotificationMonitor : NotificationListenerService() {
     private var downloadObserverRegistered = false
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName == packageName) return
-        val e = sbn.notification.extras
+        val notification = sbn.notification
+        if (sbn.packageName == packageName || !NotificationFilter.shouldInspect(sbn.packageName, notification.category)) return
+        val e = notification.extras
         val text = listOfNotNull(
             e.getCharSequence(Notification.EXTRA_TITLE),
             e.getCharSequence(Notification.EXTRA_TEXT),

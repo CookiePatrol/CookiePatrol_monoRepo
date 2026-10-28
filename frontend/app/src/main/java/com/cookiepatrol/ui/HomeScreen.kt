@@ -91,6 +91,8 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
                         lineHeight = 36.sp, fontWeight = FontWeight.SemiBold)
                     Text("알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 데모 서버와 Google Safe Browsing으로 전송되고, 추가 분석이 필요하면 OpenAI로도 전송됩니다.",
                         fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
+                    Text("화면 OCR은 켜져 있을 때만 화면을 잠깐 캡처해 기기 안에서 글자를 읽어요. 캡처 이미지는 저장하거나 서버로 보내지 않습니다.",
+                        fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
                     HorizontalDivider(color = colors.outlineVariant)
                     Text("주소에 개인정보나 로그인 토큰이 포함될 수 있어요. 서버는 주소 원문 대신 변환값을 최대 24시간 저장하지만, 완전한 익명 정보는 아닙니다.",
                         fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)

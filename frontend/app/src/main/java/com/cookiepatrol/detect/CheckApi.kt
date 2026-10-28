@@ -5,12 +5,18 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-enum class CheckStatus { DANGEROUS, NOT_DETECTED, UNKNOWN }
+enum class CheckStatus { DANGEROUS, NOT_LISTED, UNKNOWN }
+
+internal fun statusForResponse(responseCode: Int, dangerous: Boolean?): CheckStatus = when {
+    responseCode !in 200..299 || dangerous == null -> CheckStatus.UNKNOWN
+    dangerous -> CheckStatus.DANGEROUS
+    else -> CheckStatus.NOT_LISTED
+}
 
 object CheckApi {
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
-    /** 피싱 DB 우선 확인 후 AI 분석. NOT_DETECTED와 UNKNOWN도 로컬 경고를 유지한다. */
+    /** Safe Browsing 목록 판정. NOT_LISTED는 안전 보증이 아니며 UNKNOWN과 함께 로컬 경고를 유지한다. */
     fun check(url: String): CheckStatus = runCatching {
         val conn = URL("$baseUrl/check").openConnection() as HttpURLConnection
         try {
@@ -21,13 +27,10 @@ object CheckApi {
             conn.setRequestProperty("Content-Type", "application/json")
             conn.outputStream.use { it.write(JSONObject().put("url", url).toString().toByteArray()) }
 
-            if (conn.responseCode !in 200..299) {
-                CheckStatus.UNKNOWN
-            } else if (JSONObject(conn.inputStream.bufferedReader().readText()).getBoolean("dangerous")) {
-                CheckStatus.DANGEROUS
-            } else {
-                CheckStatus.NOT_DETECTED
-            }
+            val responseCode = conn.responseCode
+            if (responseCode !in 200..299) return CheckStatus.UNKNOWN
+            val dangerous = JSONObject(conn.inputStream.bufferedReader().readText()).getBoolean("dangerous")
+            statusForResponse(responseCode, dangerous)
         } finally {
             conn.disconnect()
         }

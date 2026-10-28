@@ -215,11 +215,6 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"] },
