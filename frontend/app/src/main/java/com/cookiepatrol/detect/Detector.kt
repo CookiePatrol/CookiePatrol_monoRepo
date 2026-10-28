@@ -19,8 +19,17 @@ val SIGNALS = listOf(
     },
     Signal(3, "앱 설치 파일(APK)을 받게 하는 링크예요.") { Regex("""\.apk\b""").containsMatchIn(it) },
     Signal(2, "택배·환급·미납처럼 사기 문자에 자주 나오는 말이 있어요.", any("택배", "미납", "환급", "과태료", "정부지원", "당첨")),
-    Signal(2, "가족인 척 급하게 돈이나 인증번호를 요구해요.", any("엄마", "아빠", "폰이 고장", "액정", "인증번호")),
-    Signal(3, "주민등록번호 전체를 입력하라고 해요.", any("주민등록번호", "주민번호")),
+    Signal(2, "가족인 척 급하게 돈이나 인증번호를 요구해요.") { text ->
+        val mentionsFamily = listOf("엄마", "아빠", "어머니", "아버지").any { it in text }
+        val mentionsRisk = listOf("폰", "휴대폰", "액정", "고장", "깨졌", "인증번호", "송금", "계좌", "돈").any { it in text }
+        mentionsFamily && mentionsRisk
+    },
+    Signal(3, "주민등록번호 전체를 입력하라고 해요.") {
+        Regex(
+            """주민(?:등록)?번호.{0,30}(?:전체|모두|13자리|입력|기재|인증)|(?:전체|13자리).{0,15}주민(?:등록)?번호""",
+            RegexOption.DOT_MATCHES_ALL,
+        ).containsMatchIn(it)
+    },
 )
 
 object UrlExtractor {

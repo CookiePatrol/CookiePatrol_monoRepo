@@ -54,7 +54,6 @@ object Warning {
             .setContentText(reason)
             .setOnlyAlertOnce(true)
             .setContentIntent(pending)
-            .setFullScreenIntent(pending, true)
             .setAutoCancel(true)
             .build()
         nm.notify(NOTIFICATION_ID, notification)
