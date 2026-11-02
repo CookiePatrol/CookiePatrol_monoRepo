@@ -1,6 +1,7 @@
 package com.cookiepatrol.detect
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -52,6 +53,26 @@ class SignalsTest {
         val riskScore = score("택배 주소를 확인하세요: https://parcel.example.com/track")
         assertTrue(riskScore < 3)
         assertTrue(Detector.isLookupCandidate(riskScore))
+    }
+
+    @Test
+    fun remembersDangerousUrlsAndEvictsTheOldestBeyond500Entries() {
+        val urls = (0..500).map { "https://dangerous-memory.example/$it" }
+        val oldest = urls.first()
+
+        assertFalse(Detector.isDangerousUrl(oldest))
+        Detector.rememberDangerousUrl(oldest)
+        assertTrue(Detector.isDangerousUrl(oldest))
+        assertFalse(Detector.isLookupCandidate(score(oldest)))
+
+        urls.subList(1, 500).forEach(Detector::rememberDangerousUrl)
+        assertTrue(Detector.isDangerousUrl(oldest))
+        Detector.rememberDangerousUrl(oldest)
+        Detector.rememberDangerousUrl(urls.last())
+
+        assertFalse(Detector.isDangerousUrl(oldest))
+        urls.drop(1).forEach { assertTrue(Detector.isDangerousUrl(it)) }
+        assertFalse(Detector.isDangerousUrl("https://unseen-memory.example"))
     }
 
     @Test
