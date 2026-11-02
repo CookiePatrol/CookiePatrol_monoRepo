@@ -4,6 +4,7 @@ import android.content.Context
 import com.cookiepatrol.warn.Warning
 import java.net.IDN
 import java.net.URI
+import java.util.LinkedHashMap
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
@@ -141,8 +142,10 @@ object Detector {
     private const val LOOKUP_THRESHOLD = 2
     private const val WARNING_COOLDOWN_MS = 30_000L
     private const val MAX_URLS_PER_INSPECTION = 10
+    private const val MAX_DANGEROUS_URLS = 500
 
     private val checkedUrls = UrlCheckCooldown()
+    private val dangerousUrls = LinkedHashMap<String, Unit>()
     private val recentWarnings = HashMap<String, Long>()
     private val reputationExecutor = ThreadPoolExecutor(
         2,
@@ -154,6 +157,17 @@ object Detector {
     )
 
     internal fun isLookupCandidate(score: Int): Boolean = score >= LOOKUP_THRESHOLD
+
+    @Synchronized
+    internal fun rememberDangerousUrl(url: String) {
+        dangerousUrls[url] = Unit
+        while (dangerousUrls.size > MAX_DANGEROUS_URLS) {
+            dangerousUrls.remove(dangerousUrls.entries.first().key)
+        }
+    }
+
+    @Synchronized
+    internal fun isDangerousUrl(url: String): Boolean = url in dangerousUrls
 
     /** 로컬 위험 신호는 Safe Browsing 결과와 무관하게 경고하고, 알려진 위험 URL이면 경고를 강화한다. */
     fun inspect(context: Context, rawText: String) {
@@ -168,6 +182,10 @@ object Detector {
         if (riskScore >= WARNING_THRESHOLD) {
             showWarningOnce(context, hits.maxBy { it.score }.reason)
         }
+        if (urls.any(::isDangerousUrl)) {
+            showWarningOnce(context, "위험한 사이트로 확인된 링크가 있어요.")
+            return
+        }
         if (!isLookupCandidate(riskScore)) return
 
         val urlsToCheck = urls.take(MAX_URLS_PER_INSPECTION).filter { checkedUrls.shouldCheck(it) }
@@ -181,7 +199,10 @@ object Detector {
                         break
                     }
                     when (CheckApi.check(url)) {
-                        CheckStatus.DANGEROUS -> dangerousFound = true
+                        CheckStatus.DANGEROUS -> {
+                            rememberDangerousUrl(url)
+                            dangerousFound = true
+                        }
                         CheckStatus.UNKNOWN -> checkedUrls.forget(url)
                         CheckStatus.NOT_DETECTED -> Unit
                     }
