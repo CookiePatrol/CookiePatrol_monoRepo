@@ -8,6 +8,15 @@ class SignalsTest {
     private fun score(text: String) = SIGNALS.filter { it.matches(text.lowercase()) }.sumOf { it.score }
 
     @Test
+    fun safetyAdviceDoesNotCancelASeparatePositiveRequest() {
+        assertTrue(RiskAnalyzer.analyze("인증번호를 알려주지 마세요. 엄마 사칭에 주의하세요.").score < 3)
+        assertTrue(RiskAnalyzer.analyze("주민등록번호를 입력하지 마세요.").score < 3)
+        val result = RiskAnalyzer.analyze("엄마 나 폰 고장났어. 인증번호 입력해주세요. 사진은 보내지 마세요.")
+        assertTrue(result.shouldWarn)
+        assertTrue(result.hits.any { it.id == "credential" })
+    }
+
+    @Test
     fun smishingIsSuspicious() {
         assertTrue(score("[국제발신] 택배 주소 불일치, 확인 bit.ly/x1Y2") >= 3)
         assertTrue(score("엄마 나 폰 액정 깨졌어 http://1.2.3.4/a.apk") >= 3)

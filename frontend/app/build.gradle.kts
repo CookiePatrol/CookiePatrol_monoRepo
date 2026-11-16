@@ -15,8 +15,8 @@ android {
         applicationId = "com.cookiepatrol"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.2.1"
         buildConfigField("String", "API_BASE_URL", "\"$cookiePatrolApiBaseUrl\"")
     }
     buildFeatures {
@@ -33,4 +33,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

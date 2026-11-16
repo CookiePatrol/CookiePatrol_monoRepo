@@ -21,6 +21,11 @@ class SafeBrowsingChecker:
         self._positive_cache: OrderedDict[str, float] = OrderedDict()
         self._lock = threading.Lock()
 
+    def cache_ttl_remaining(self, url: str) -> float:
+        key = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        with self._lock:
+            return max(0.0, self._positive_cache.get(key, 0.0) - time.monotonic())
+
     def is_dangerous(self, url: str) -> bool:
         if not self._api_key:
             raise ThreatCheckUnavailable("SAFE_BROWSING_API_KEY is required")
@@ -51,6 +56,11 @@ class SafeBrowsingChecker:
                 )
                 response.raise_for_status()
                 data = response.json()
+        except httpx.TimeoutException:
+            raise ThreatCheckUnavailable("Safe Browsing timeout", reason="timeout") from None
+        except httpx.HTTPStatusError as exc:
+            reason = "rate_limited" if exc.response.status_code == 429 else "provider_error"
+            raise ThreatCheckUnavailable("Safe Browsing lookup failed", reason=reason) from None
         except (httpx.HTTPError, ValueError):
             raise ThreatCheckUnavailable("Safe Browsing lookup failed") from None
 

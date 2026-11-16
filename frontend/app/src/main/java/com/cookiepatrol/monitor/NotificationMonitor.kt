@@ -5,6 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ComponentName
+import android.app.NotificationManager
+import android.os.Environment
+import androidx.core.app.NotificationCompat
 import android.os.Build
 import android.database.ContentObserver
 import android.net.Uri
@@ -15,6 +19,13 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.cookiepatrol.detect.Detector
 import com.cookiepatrol.warn.Warning
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.RejectedExecutionException
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 
 private val REMOTE_CONTROL_APPS = setOf(
     "com.teamviewer.quicksupport.market",
@@ -31,18 +42,32 @@ class NotificationMonitor : NotificationListenerService() {
 
     private var installReceiverRegistered = false
     private var downloadObserverRegistered = false
+    private val repeated = EventDeduplicator(ttlMillis = 5 * 60_000L)
+    @Volatile private var listening = false
+    private val downloads = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(32),
+        { task -> Thread(task, "cookiepatrol-downloads").apply { isDaemon = true } })
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val notification = sbn.notification
         if (sbn.packageName == packageName || !NotificationFilter.shouldInspect(sbn.packageName, notification.category)) return
-        val e = notification.extras
-        val text = listOfNotNull(
-            e.getCharSequence(Notification.EXTRA_TITLE),
-            e.getCharSequence(Notification.EXTRA_TEXT),
-            e.getCharSequence(Notification.EXTRA_BIG_TEXT),
-            e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString("\n"),
-        ).joinToString("\n")
-        Detector.inspect(this, text)
+        // Apps may change extras formats; malformed bundles cannot stop the listener.
+        val parts = runCatching {
+            val e = notification.extras
+            NotificationText.parts(NotificationContent(
+                title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
+                text = e.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
+                bigText = e.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty(),
+                lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.map { it.toString() }.orEmpty(),
+                messages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+                    ?.messages?.map { MessagePart(it.text?.toString().orEmpty(), it.timestamp) }.orEmpty(),
+                groupSummary = notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
+            ))
+        }.getOrDefault(emptyList())
+        parts.forEach { part ->
+            val timestamp = part.timestamp.takeIf { it > 0 } ?: notification.`when`.takeIf { it > 0 } ?: sbn.postTime
+            val key = fingerprint("${sbn.key}\u0000$timestamp\u0000${part.text}")
+            if (repeated.admit(key)) Detector.inspect(this, part.text, key)
+        }
     }
 
     private val installReceiver = object : BroadcastReceiver() {
@@ -65,52 +90,79 @@ class NotificationMonitor : NotificationListenerService() {
         }
     }
 
-    private val warnedDownloads = HashSet<String>()
+    private val warnedDownloads = EventDeduplicator(ttlMillis = 24 * 60 * 60_000L)
 
     private val downloadObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             if (uri?.lastPathSegment?.toLongOrNull() == null) return // 개별 파일 변경만 본다
-            val name = runCatching {
-                contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { if (it.moveToFirst()) it.getString(0) else null }
-            }.getOrNull() ?: return
-            if (name.endsWith(".apk", ignoreCase = true) && warnedDownloads.add(uri.toString())) {
-                Warning.show(
-                    this@NotificationMonitor,
-                    "앱 설치 파일(APK)이 다운로드됐어요.",
-                    "직접 받은 게 아니라면 열지 말고 지우세요.",
-                )
+            if (!Environment.isExternalStorageManager() || !listening) return
+            try {
+                downloads.execute {
+                    if (!listening) return@execute
+                    val name = runCatching {
+                        contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+                            ?.use { if (it.moveToFirst()) it.getString(0) else null }
+                    }.getOrNull() ?: return@execute
+                    val key = fingerprint(uri.toString())
+                    if (listening && name.endsWith(".apk", ignoreCase = true) && warnedDownloads.admit(key)) {
+                        if (!Warning.show(this@NotificationMonitor, "앱 설치 파일(APK)이 다운로드됐어요.",
+                            "직접 받은 게 아니라면 열지 말고 지우세요.", eventKey = key)) warnedDownloads.forget(key)
+                    }
+                }
+            } catch (_: RejectedExecutionException) {
+                // Bounded background work; no file names or content are logged.
             }
         }
     }
 
     override fun onListenerConnected() {
+        super.onListenerConnected()
+        listening = true
+        MonitorStatus.connected = true
         if (!installReceiverRegistered) {
             val filter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(installReceiver, filter, android.content.Context.RECEIVER_EXPORTED)
-            } else {
-                @Suppress("DEPRECATION")
-                registerReceiver(installReceiver, filter)
-            }
-            installReceiverRegistered = true
+            installReceiverRegistered = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(installReceiver, filter, android.content.Context.RECEIVER_EXPORTED)
+                } else {
+                    @Suppress("DEPRECATION")
+                    registerReceiver(installReceiver, filter)
+                }
+                true
+            }.getOrDefault(false)
         }
         if (!downloadObserverRegistered) {
-            contentResolver.registerContentObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI, true, downloadObserver)
-            downloadObserverRegistered = true
+            downloadObserverRegistered = runCatching {
+                contentResolver.registerContentObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI, true, downloadObserver)
+                true
+            }.getOrDefault(false)
         }
+        MonitorStatus.installMonitoringReady = installReceiverRegistered
+        MonitorStatus.downloadMonitoringReady = downloadObserverRegistered
     }
 
     override fun onListenerDisconnected() {
+        listening = false
+        MonitorStatus.connected = false
         unregisterMonitors()
+        // Rebinding is permitted while disconnected. A revoked permission is never restored here.
+        if (getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(ComponentName(this, javaClass))) {
+            runCatching { requestRebind(ComponentName(this, javaClass)) }
+        }
+        super.onListenerDisconnected()
     }
 
     override fun onDestroy() {
+        listening = false
+        downloads.shutdownNow()
+        MonitorStatus.connected = false
         unregisterMonitors()
         super.onDestroy()
     }
 
     private fun unregisterMonitors() {
+        MonitorStatus.installMonitoringReady = false
+        MonitorStatus.downloadMonitoringReady = false
         if (installReceiverRegistered) {
             runCatching { unregisterReceiver(installReceiver) }
             installReceiverRegistered = false
@@ -120,4 +172,13 @@ class NotificationMonitor : NotificationListenerService() {
             downloadObserverRegistered = false
         }
     }
+}
+
+object MonitorStatus {
+    var connected: Boolean by mutableStateOf(false)
+        internal set
+    var installMonitoringReady: Boolean by mutableStateOf(false)
+        internal set
+    var downloadMonitoringReady: Boolean by mutableStateOf(false)
+        internal set
 }

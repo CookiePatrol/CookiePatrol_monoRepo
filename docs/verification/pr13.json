@@ -1,0 +1,10 @@
+﻿{
+    "number":  13,
+    "title":  "fix(frontend): 위험 URL 재방문 시 서버 재조회 없이 재경고",
+    "merged_at":  "2026-11-02T13:25:59Z",
+    "merge_commit_sha":  "28eab7e58542f34ba703c1a0943a0258e1994dc4",
+    "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/13",
+    "author":  "mmmthreeteam5000-source",
+    "base_sha":  "2966e304e20d75a7ed78ca46de678803c63c6fc3",
+    "head_sha":  "51504a3b30c31f170eda3e16dece93e52d9d5de4"
+}

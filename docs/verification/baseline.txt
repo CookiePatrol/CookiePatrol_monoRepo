@@ -1,0 +1,5 @@
+﻿branch=feature/backend-check-api
+commit=70923b46037a166bf3cc6c6fa248d4f764f60f8c
+snapshot_created_at=2026-11-16T09:37:57Z
+baseline_backend=103 passed
+baseline_android=23 passed; debug/release/lint passed after heap retry

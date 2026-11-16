@@ -48,6 +48,7 @@ class ScreenMonitor : AccessibilityService() {
     private val destroyed = AtomicBoolean(false)
     private val recognizerClosed = AtomicBoolean(false)
     private var lastScreenshotAt = 0L
+    private val repeatedText = EventDeduplicator()
 
     private val scanRunnable = Runnable { scanActiveWindow() }
 
@@ -58,8 +59,8 @@ class ScreenMonitor : AccessibilityService() {
             event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED
         ) return
 
-        mainHandler.removeCallbacks(scanRunnable)
-        mainHandler.postDelayed(scanRunnable, SCAN_DELAY_MS)
+        // Coalesce bursts without postponing forever on continuously changing screens.
+        if (!mainHandler.hasCallbacks(scanRunnable)) mainHandler.postDelayed(scanRunnable, SCAN_DELAY_MS)
     }
 
     private fun scanActiveWindow() {
@@ -178,7 +179,7 @@ class ScreenMonitor : AccessibilityService() {
     private fun inspectText(accessibleText: String, recognizedText: String = "") {
         if (destroyed.get()) return
         val combined = combineScreenText(accessibleText, recognizedText, MAX_SCREEN_TEXT_CHARS)
-        if (combined.isNotBlank()) Detector.inspect(this, combined)
+        if (combined.isNotBlank() && repeatedText.admit(fingerprint(combined))) Detector.inspect(this, combined)
     }
 
     private fun finishScan() {
@@ -204,6 +205,7 @@ class ScreenMonitor : AccessibilityService() {
         try {
             if (out.length >= MAX_SCREEN_TEXT_CHARS || visited[0] >= MAX_NODES_PER_SCAN) return
             visited[0]++
+            if (node.isPassword) return
             listOfNotNull(node.text, node.hintText, node.contentDescription)
                 .map { it.toString() }
                 .filter { it.isNotBlank() && seen.add(it) }
@@ -248,7 +250,7 @@ class ScreenMonitor : AccessibilityService() {
 
     private companion object {
         const val SCAN_DELAY_MS = 350L
-        const val MIN_SCREENSHOT_INTERVAL_MS = 1_000L
+        const val MIN_SCREENSHOT_INTERVAL_MS = 2_000L
         const val MAX_SCREEN_TEXT_CHARS = 12_000
         const val MAX_NODES_PER_SCAN = 500
     }

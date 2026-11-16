@@ -1,0 +1,5 @@
+﻿SAFE_BROWSING_API_KEY, OPENAI_API_KEY, OPENAI_MODEL are the names in backend/.env.example.
+.env loading: Path(__file__).resolve().parents[1] / .env in app/main.py, override=False.
+git check-ignore: backend/.env matches .gitignore .env; backend/.env.local matches .env.*.
+git ls-files -- backend/.env returned no tracked file. No key values were printed.
+Device inventory: adb devices -l on 2026-11-16 returned no attached device.

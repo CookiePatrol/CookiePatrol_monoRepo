@@ -32,6 +32,8 @@ API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.
 
 ## API behavior
 
+Review update (2026-11-16): see [review report](../docs/심사_반영_보고서.md) and [reproducible evaluation](../docs/평가_실행_방법.md). Real provider detection performance is **not measured**. The checked-in provider comparison is a **mock simulation**; actual API comparison was not run.
+
 `POST /check` accepts `{"url":"https://example.com/path"}` and retains the existing response contract:
 
 - `200 {"dangerous":true}`: Google listed the URL as a threat, or the AI detected suspicious URL indicators. Google matches skip AI calls.
@@ -40,6 +42,12 @@ API documentation: http://localhost:8000/docs. The emulator uses `http://10.0.2.
 - `422`: invalid URL input.
 
 `GET /health` checks process health, not provider credentials or availability.
+
+`POST /check/details` uses the same request and adds `source` (`safe_browsing`, `ai`, `ai_cache`), `indicators`, a fixed Korean `reason`, `prompt_version`, `limitation`, and `google_cache_ttl_seconds` (remaining positive Google cache validity, otherwise zero). The legacy `/check` response is unchanged. Both routes share the rate limit. Deploy the server before the new app; an old server's 404 becomes unknown in the new app. A Google failure followed by valid AI output uses that output; provider failures are still counted separately by the evaluation tool.
+
+AI output now requires `verdict` and `indicators`: `brand_impersonation`, `credential_lure`, `deceptive_host`, `encoded_destination`, `suspicious_download`. Dangerous verdicts require codes; negative verdicts require an empty list. Contradictions, unknown/duplicate codes and incomplete/refused output fail to 503, preserving local warnings. Codes are inferences from URL structure, not verified page findings. No URL excerpts or free-form model explanation are cached. Cached verdicts are identified without inventing their old evidence. The cache namespace includes `url-structure-v2` and the model.
+
+Simultaneous identical URL checks share one in-flight chain, bounded to 64 pending keys. A follower waits at most 22 seconds. Input validation errors use generic text without echoing URL tokens.
 
 The default model is `gpt-4.1-mini`; configure `OPENAI_MODEL` to change it. The request uses a strict JSON schema, a 200-token output limit, no browsing tools, and `store: false`. OpenAI API usage can incur charges. Assessment is limited to the URL string, so redirects and page content are not inspected. Structured output validates format, not judgment accuracy.
 
@@ -51,7 +59,13 @@ AI results are cached for 24 hours in `./data/cookiepatrol-cache.sqlite3` (overr
 
 Full candidate URLs are sent to Google Safe Browsing and, only if additional analysis is needed, to OpenAI and may contain personal data or tokens in their path or query. Avoid personalized links and logging request bodies, full URLs, or authorization headers. `store: false` disables response storage; it does not imply zero data retention under all OpenAI policies.
 
+Android reuses AI results for at most five minutes. Google positive results use the lesser of five minutes and the server's remaining Google validity, conservatively subtracting the entire request duration. Missing or zero validity disables client reuse while still displaying the current warning. A late weaker result cannot replace stronger evidence for the same notification event.
+
 ## Tests
+
+Automatic external checks in the Android app now default off until separate consent. Notification/accessibility permissions alone do not enable URL transfer. The manual-check button explicitly submits one URL even below the automatic threshold.
+
+The cache's 24 hours are a validity period. Expired SQLite rows are removed on lookup/subsequent writes, rather than necessarily at the instant they expire. Restrict database access and define operational cleanup. Do not log request bodies or authorization headers. Default server access logs may contain client IPs and endpoint paths.
 
 ```powershell
 uv run pytest -q

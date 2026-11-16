@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.application.check_url import CheckUrl
-from app.domain.url_check import ThreatCheckUnavailable
+from app.domain.url_check import ThreatCheckUnavailable, UrlAssessment
 from app import infrastructure, presentation
 from app.main import app
 from app.presentation import ClientRateLimiter, close_check_url, get_check_url
@@ -10,6 +10,9 @@ from app.presentation import ClientRateLimiter, close_check_url, get_check_url
 
 class FakeChecker:
     cache_namespace = "test"
+
+    def cache_ttl_remaining(self, url: str) -> float:
+        return 0.0
 
     def __init__(self, dangerous: bool = False, unavailable: bool = False):
         self.dangerous = dangerous
@@ -23,6 +26,10 @@ class FakeChecker:
         if self.unavailable:
             raise ThreatCheckUnavailable()
         return self.dangerous
+
+    def assess(self, url: str) -> UrlAssessment:
+        dangerous = self.is_dangerous(url)
+        return UrlAssessment(dangerous, "ai", ("deceptive_host",) if dangerous else ())
 
 
 class FakeCache:

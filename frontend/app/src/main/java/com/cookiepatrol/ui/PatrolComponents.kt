@@ -111,10 +111,10 @@ fun PatrolCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
 }
 
 @Composable
-fun PatrolButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PatrolButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 72.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
         shape = RoundedCornerShape(18.dp),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
     ) { Text(label, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold) }
