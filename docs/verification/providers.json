@@ -1,0 +1,18 @@
+{
+  "recorded_at": "2026-11-16T10:52:02.738930+00:00",
+  "mode": "configuration_only",
+  "test_url": "https://example.com/",
+  "providers": {
+    "google": {
+      "key_configured": false,
+      "attempted": false,
+      "status": "not_configured"
+    },
+    "ai": {
+      "key_configured": false,
+      "attempted": false,
+      "status": "not_configured"
+    }
+  },
+  "model": "gpt-4.1-mini"
+}

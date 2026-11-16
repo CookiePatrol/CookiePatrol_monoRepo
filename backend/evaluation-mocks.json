@@ -1,0 +1,12 @@
+{
+  "_description": "Deliberately assigned simulation outcomes; NOT model measurements or actual threat intelligence. Unspecified entries are not_detected.",
+  "P28": {"google": "dangerous"},
+  "P22": {"ai": "dangerous"},
+  "N25": {"ai": "dangerous"},
+  "EP20": {"ai": "dangerous"},
+  "EP21": {"ai": "dangerous"},
+  "EP22": {"google": "dangerous"},
+  "EP23": {"ai": "rate_limited"},
+  "EP28": {"google": "unavailable", "ai": "timeout"},
+  "EN21": {"ai": "dangerous"}
+}

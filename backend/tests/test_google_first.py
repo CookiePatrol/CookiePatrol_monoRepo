@@ -197,7 +197,7 @@ def test_default_api_full_provider_chain(monkeypatch, tmp_path, google_payload, 
             return httpx.Response(200, json=google_payload)
         return httpx.Response(200, json={"status": "completed", "output": [{
             "type": "message", "status": "completed",
-            "content": [{"type": "output_text", "text": '{"verdict":"not_detected"}'}],
+            "content": [{"type": "output_text", "text": '{"verdict":"not_detected","indicators":[]}'}],
         }]})
 
     monkeypatch.setattr(safe_browsing.httpx, "Client", lambda **kwargs:

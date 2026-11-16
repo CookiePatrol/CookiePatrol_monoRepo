@@ -3,6 +3,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.presentation import close_check_url, router
 
@@ -21,3 +23,9 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="CookiePatrol", lifespan=lifespan)
 app.include_router(router)
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_input(_request, _exc):
+    # Pydantic's default error details echo input values, including URL tokens.
+    return JSONResponse(status_code=422, content={"detail": "Invalid request; provide one valid HTTP(S) URL"})

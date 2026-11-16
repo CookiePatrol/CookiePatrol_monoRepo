@@ -1,0 +1,80 @@
+﻿[
+    {
+        "number":  13,
+        "title":  "fix(frontend): 위험 URL 재방문 시 서버 재조회 없이 재경고",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/13"
+    },
+    {
+        "number":  12,
+        "title":  "디자인 시안과 한국어 개발 요약 추가",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/12"
+    },
+    {
+        "number":  11,
+        "title":  "feat(frontend): 브랜드 아이콘·스플래시·LevelUp 폰트 적용",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/11"
+    },
+    {
+        "number":  10,
+        "title":  "fix: bound URL checks and harden OCR monitoring",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/10"
+    },
+    {
+        "number":  9,
+        "title":  "feat: add on-device OCR and strengthen phishing detection",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/9"
+    },
+    {
+        "number":  8,
+        "title":  "feat(frontend): 아이폰 스타일 UI와 다크 모드 적용",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/8"
+    },
+    {
+        "number":  7,
+        "title":  "fix: demo monitoring stability and checklist",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/7"
+    },
+    {
+        "number":  6,
+        "title":  "feat: Google Safe Browsing 우선 조회 후 OpenAI 추가 분석",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/6"
+    },
+    {
+        "number":  5,
+        "title":  "fix: Safe Browsing 응답 검증 강화 및 pytest 실행 환경 보완",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/5"
+    },
+    {
+        "number":  4,
+        "title":  "feat: add URL threat check API and demo integration",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/4"
+    },
+    {
+        "number":  3,
+        "title":  "feat: Google Safe Browsing 연동 및 SQLite 결과 캐시",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/3"
+    },
+    {
+        "number":  2,
+        "title":  "feat(frontend): 큰 글씨와 간단한 설정 흐름 적용",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/2"
+    },
+    {
+        "number":  1,
+        "title":  "모노레포 초기 구조: FastAPI 백엔드 + 안드로이드 앱",
+        "state":  "closed",
+        "html_url":  "https://github.com/CookiePatrol/CookiePatrol_monoRepo/pull/1"
+    }
+]

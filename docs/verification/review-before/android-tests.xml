@@ -1,0 +1,89 @@
+<testsuites>
+  <testsuite name="com.cookiepatrol.detect.CheckApiTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.316Z" hostname="23LGG_02" time="0.009">
+    <properties />
+    <testcase name="mapsErrorsAndMissingVerdictsToUnknown" classname="com.cookiepatrol.detect.CheckApiTest" time="0.008" />
+    <testcase name="mapsSuccessfulProviderVerdicts" classname="com.cookiepatrol.detect.CheckApiTest" time="0.0" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.detect.CheckApiTransportTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.329Z" hostname="23LGG_02" time="0.125">
+    <properties />
+    <testcase name="rateLimitMalformedAndOversizedResponsesAreUnknown" classname="com.cookiepatrol.detect.CheckApiTransportTest" time="0.111" />
+    <testcase name="actualHttpTransportMatchesDetailedServerContract" classname="com.cookiepatrol.detect.CheckApiTransportTest" time="0.014" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.detect.CheckDetailsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.456Z" hostname="23LGG_02" time="0.002">
+    <properties />
+    <testcase name="rejectsContradictionsAndUnknownEvidence" classname="com.cookiepatrol.detect.CheckDetailsTest" time="0.001" />
+    <testcase name="aiWarningDoesNotClaimDatabaseConfirmation" classname="com.cookiepatrol.detect.CheckDetailsTest" time="0.001" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.detect.ReputationCoordinatorTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.461Z" hostname="23LGG_02" time="0.023">
+    <properties />
+    <testcase name="transientFailuresAndQueueRejectionAllowRetry" classname="com.cookiepatrol.detect.ReputationCoordinatorTest" time="0.015" />
+    <testcase name="sharesRequestAndReplaysDangerForNewNotification" classname="com.cookiepatrol.detect.ReputationCoordinatorTest" time="0.008" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.detect.SignalsTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.489Z" hostname="23LGG_02" time="0.124">
+    <properties />
+    <testcase name="smishingIsSuspicious" classname="com.cookiepatrol.detect.SignalsTest" time="0.021" />
+    <testcase name="suspiciousHttpsLinkIsCheckedEvenBelowLocalWarningThreshold" classname="com.cookiepatrol.detect.SignalsTest" time="0.006" />
+    <testcase name="urlsAreTrimmedValidatedAndNormalized" classname="com.cookiepatrol.detect.SignalsTest" time="0.036" />
+    <testcase name="insecurePaymentLinkAndSensitiveDataRequestTriggerWarning" classname="com.cookiepatrol.detect.SignalsTest" time="0.003" />
+    <testcase name="normalAdvertisementIsNotSuspiciousByItself" classname="com.cookiepatrol.detect.SignalsTest" time="0.001" />
+    <testcase name="demoMessageTriggersLocalWarningThreshold" classname="com.cookiepatrol.detect.SignalsTest" time="0.002" />
+    <testcase name="fakeAccountSecurityPageTriggersLocalWarningThreshold" classname="com.cookiepatrol.detect.SignalsTest" time="0.001" />
+    <testcase name="deceptiveUserInfoUrlTriggersWarningAndChecksActualHost" classname="com.cookiepatrol.detect.SignalsTest" time="0.002" />
+    <testcase name="familyImpersonationAskingForVerificationCodeTriggersWarning" classname="com.cookiepatrol.detect.SignalsTest" time="0.001" />
+    <testcase name="normalMessageIsNot" classname="com.cookiepatrol.detect.SignalsTest" time="0.001" />
+    <testcase name="safetyAdviceDoesNotCancelASeparatePositiveRequest" classname="com.cookiepatrol.detect.SignalsTest" time="0.007" />
+    <testcase name="fakePrizeAdWithShortLinkTriggersLocalWarningThreshold" classname="com.cookiepatrol.detect.SignalsTest" time="0.001" />
+    <testcase name="unicodeHomographDomainIsCanonicalizedAndFlagged" classname="com.cookiepatrol.detect.SignalsTest" time="0.036" />
+    <testcase name="familyOrIdentityMentionsWithoutRiskRequestDoNotTrigger" classname="com.cookiepatrol.detect.SignalsTest" time="0.002" />
+    <testcase name="accountSuspensionThreatWithShortLinkTriggersLocalWarningThreshold" classname="com.cookiepatrol.detect.SignalsTest" time="0.002" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.detect.UrlCheckCooldownTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.615Z" hostname="23LGG_02" time="0.007">
+    <properties />
+    <testcase name="suppressesSuccessfulRepeatUntilTtlExpires" classname="com.cookiepatrol.detect.UrlCheckCooldownTest" time="0.004" />
+    <testcase name="evictsOldestEntriesToKeepTheCacheBounded" classname="com.cookiepatrol.detect.UrlCheckCooldownTest" time="0.002" />
+    <testcase name="unknownResultCanBeRetriedImmediately" classname="com.cookiepatrol.detect.UrlCheckCooldownTest" time="0.001" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.evaluation.EvaluationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:04.628Z" hostname="23LGG_02" time="0.437">
+    <properties />
+    <testcase name="calculatesMetricsFromSmallVerifiedMatrix" classname="com.cookiepatrol.evaluation.EvaluationTest" time="0.027" />
+    <testcase name="rejectsCorruptFixtures" classname="com.cookiepatrol.evaluation.EvaluationTest" time="0.001" />
+    <testcase name="evaluatesProductionAndFrozenBaselineAndWritesMachineReadableResults" classname="com.cookiepatrol.evaluation.EvaluationTest" time="0.409" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.monitor.NotificationFilterTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:05.069Z" hostname="23LGG_02" time="0.003">
+    <properties />
+    <testcase name="skipsUnrelatedNotifications" classname="com.cookiepatrol.monitor.NotificationFilterTest" time="0.003" />
+    <testcase name="inspectsMessageCategoryAndKnownMessagingApps" classname="com.cookiepatrol.monitor.NotificationFilterTest" time="0.0" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.monitor.NotificationTextTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:05.078Z" hostname="23LGG_02" time="0.041">
+    <properties />
+    <testcase name="messagingStyleKeepsDifferentMessagesSeparate" classname="com.cookiepatrol.monitor.NotificationTextTest" time="0.013" />
+    <testcase name="boundsTextAndRetainsLatestMessages" classname="com.cookiepatrol.monitor.NotificationTextTest" time="0.017" />
+    <testcase name="expandedTextAndSummaryFallbacks" classname="com.cookiepatrol.monitor.NotificationTextTest" time="0.0" />
+    <testcase name="duplicateGuardKeepsNewMessagesRegardlessOfSharedReason" classname="com.cookiepatrol.monitor.NotificationTextTest" time="0.01" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+  <testsuite name="com.cookiepatrol.monitor.ScreenTextTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-16T10:25:05.124Z" hostname="23LGG_02" time="0.014">
+    <properties />
+    <testcase name="keepsOcrWhenAccessibilityTextFillsTheBudget" classname="com.cookiepatrol.monitor.ScreenTextTest" time="0.012" />
+    <testcase name="usesFullBudgetForTheOnlyAvailableSource" classname="com.cookiepatrol.monitor.ScreenTextTest" time="0.001" />
+    <system-out><![CDATA[]]></system-out>
+    <system-err><![CDATA[]]></system-err>
+  </testsuite>
+</testsuites>

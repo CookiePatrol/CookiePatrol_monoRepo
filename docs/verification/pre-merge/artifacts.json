@@ -1,0 +1,10 @@
+﻿[
+    {
+        "path":  "frontend/app/build/outputs/apk/debug/app-debug.apk",
+        "sha256":  "1652FA985173FD188B6362E98060C32799B28CF13BAB667B3207786228EB1167"
+    },
+    {
+        "path":  "frontend/app/build/outputs/apk/release/app-release-unsigned.apk",
+        "sha256":  "7B52A5C2E074EE4F4AAE536228D14985AD35E12FA4FBE0220945FAEACCEE84E6"
+    }
+]

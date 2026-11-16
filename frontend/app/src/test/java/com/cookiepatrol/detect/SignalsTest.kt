@@ -9,6 +9,15 @@ class SignalsTest {
     private fun score(text: String) = SIGNALS.filter { it.matches(text.lowercase()) }.sumOf { it.score }
 
     @Test
+    fun safetyAdviceDoesNotCancelASeparatePositiveRequest() {
+        assertTrue(RiskAnalyzer.analyze("인증번호를 알려주지 마세요. 엄마 사칭에 주의하세요.").score < 3)
+        assertTrue(RiskAnalyzer.analyze("주민등록번호를 입력하지 마세요.").score < 3)
+        val result = RiskAnalyzer.analyze("엄마 나 폰 고장났어. 인증번호 입력해주세요. 사진은 보내지 마세요.")
+        assertTrue(result.shouldWarn)
+        assertTrue(result.hits.any { it.id == "credential" })
+    }
+
+    @Test
     fun smishingIsSuspicious() {
         assertTrue(score("[국제발신] 택배 주소 불일치, 확인 bit.ly/x1Y2") >= 3)
         assertTrue(score("엄마 나 폰 액정 깨졌어 http://1.2.3.4/a.apk") >= 3)
@@ -59,20 +68,20 @@ class SignalsTest {
     fun remembersDangerousUrlsAndEvictsTheOldestBeyond500Entries() {
         val urls = (0..500).map { "https://dangerous-memory.example/$it" }
         val oldest = urls.first()
-
-        assertFalse(Detector.isDangerousUrl(oldest))
-        Detector.rememberDangerousUrl(oldest)
-        assertTrue(Detector.isDangerousUrl(oldest))
+        val coordinator = ReputationCoordinator(java.util.concurrent.Executor { it.run() }, {
+            CheckResult(CheckStatus.DANGEROUS, "ai_cache")
+        })
+        assertEquals(null, coordinator.cachedDangerous(oldest))
+        coordinator.lookup(oldest) {}
+        assertEquals(CheckStatus.DANGEROUS, coordinator.cachedDangerous(oldest)?.status)
         assertFalse(Detector.isLookupCandidate(score(oldest)))
-
-        urls.subList(1, 500).forEach(Detector::rememberDangerousUrl)
-        assertTrue(Detector.isDangerousUrl(oldest))
-        Detector.rememberDangerousUrl(oldest)
-        Detector.rememberDangerousUrl(urls.last())
-
-        assertFalse(Detector.isDangerousUrl(oldest))
-        urls.drop(1).forEach { assertTrue(Detector.isDangerousUrl(it)) }
-        assertFalse(Detector.isDangerousUrl("https://unseen-memory.example"))
+        urls.subList(1, 500).forEach { coordinator.lookup(it) {} }
+        assertEquals(CheckStatus.DANGEROUS, coordinator.cachedDangerous(oldest)?.status)
+        coordinator.lookup(oldest) {}
+        coordinator.lookup(urls.last()) {}
+        assertEquals(null, coordinator.cachedDangerous(oldest))
+        urls.drop(1).forEach { assertEquals(CheckStatus.DANGEROUS, coordinator.cachedDangerous(it)?.status) }
+        assertEquals(null, coordinator.cachedDangerous("https://unseen-memory.example"))
     }
 
     @Test

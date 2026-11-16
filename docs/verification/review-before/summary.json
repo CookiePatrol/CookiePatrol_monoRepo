@@ -1,0 +1,24 @@
+﻿{
+    "recorded_at":  "2026-11-16T10:25:20.6879712Z",
+    "branch":  "feature/backend-check-api",
+    "base_commit":  "70923b46037a166bf3cc6c6fa248d4f764f60f8c",
+    "uncommitted_changes":  true,
+    "android_tests":  37,
+    "android_failures":  0,
+    "backend_tests":  124,
+    "backend_failures":  0,
+    "lint_warnings":  5,
+    "lint_errors":  0,
+    "debug_build":  "passed",
+    "release_build":  "passed_unsigned",
+    "physical_device":  "not_verified_by_script",
+    "emulator":  "not_verified_by_script",
+    "connected_device_inventory":  {
+                                       "status":  "read_only_inventory",
+                                       "physical":  0,
+                                       "emulators":  0,
+                                       "unauthorized":  0
+                                   },
+    "external_detection":  "not_measured; mock only",
+    "env_tracked":  false
+}

@@ -1,0 +1,10 @@
+﻿{
+    "status":  "failed",
+    "run_id":  "008d42ed-98d8-49a8-8c61-85dd47719553",
+    "started_at":  "2026-11-16T10:44:49.1692936Z",
+    "recorded_at":  "2026-11-16T10:44:49.3059771Z",
+    "failed_step":  "setup",
+    "failure_type":  "RuntimeException",
+    "external_detection":  "not_established_by_failed_run",
+    "expected_failure_verified":  true
+}

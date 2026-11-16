@@ -117,10 +117,10 @@ fun PatrolCard(
 @Composable
 fun PatrolButton(
     label: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,

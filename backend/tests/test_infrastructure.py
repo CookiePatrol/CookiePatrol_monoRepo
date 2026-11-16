@@ -146,7 +146,8 @@ def completed_response(verdict="dangerous"):
         "status": "completed",
         "output": [{
             "type": "message", "status": "completed",
-            "content": [{"type": "output_text", "text": json.dumps({"verdict": verdict})}],
+            "content": [{"type": "output_text", "text": json.dumps({"verdict": verdict,
+                "indicators": ["brand_impersonation"] if verdict == "dangerous" else []})}],
         }],
     }
 
@@ -255,7 +256,7 @@ def test_model_configuration_and_cache_isolation(monkeypatch):
     monkeypatch.setenv("OPENAI_MODEL", "custom-model")
     checker = OpenAIThreatChecker()
     assert checker.model == "custom-model"
-    assert checker.cache_namespace == "openai-url-v1:custom-model"
+    assert checker.cache_namespace == "openai-url-structure-v2:custom-model"
     monkeypatch.setenv("CACHE_DB_PATH", ":memory:")
     first = SqliteVerdictCache(namespace=checker.cache_namespace)
     second = SqliteVerdictCache(namespace="openai-url-v1:other-model")

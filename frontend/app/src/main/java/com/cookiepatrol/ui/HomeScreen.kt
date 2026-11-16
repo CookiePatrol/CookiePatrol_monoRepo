@@ -15,9 +15,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -31,13 +37,18 @@ data class ProtectionSetting(
     val description: String,
     val symbol: PatrolSymbol,
     val enabled: Boolean,
+    val guide: PermissionGuide,
     val open: () -> Unit,
 )
 
 @Composable
-fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openScreenSettings: () -> Unit) {
+fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean,
+               monitorConnected: Boolean, extraMonitorsConnected: Boolean, remoteEnabled: Boolean, changeRemoteConsent: (Boolean) -> Unit,
+               openManualCheck: () -> Unit, openFieldTrial: (() -> Unit)? = null, openScreenSettings: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val next = settings.firstOrNull { !it.enabled }
+    var explaining by remember { mutableStateOf<ProtectionSetting?>(null) }
+    var showConsent by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -72,7 +83,7 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
                             ))
                     }
                 }
-                if (next != null) PatrolButton("${next.title} 켜기", next.open,
+                if (next != null) PatrolButton("${next.title} 켜기", onClick = { explaining = next },
                     containerColor = colors.surface, contentColor = colors.onSurface)
             }
         }
@@ -80,7 +91,7 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
             SectionTitle("보호 설정")
             PatrolCard {
                 settings.forEachIndexed { index, setting ->
-                    SettingRow(setting)
+                    SettingRow(setting) { explaining = setting }
                     if (index < settings.lastIndex) HorizontalDivider(
                         Modifier.padding(start = 80.dp), color = colors.outlineVariant,
                     )
@@ -88,15 +99,35 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
             }
             Text("설정 후 돌아오면 상태가 자동으로 반영돼요.", Modifier.padding(horizontal = 4.dp),
                 fontSize = 20.sp, lineHeight = 28.sp, color = colors.onSurfaceVariant)
+            Text(if (monitorConnected) "알림 감시 서비스가 연결됐어요." else "알림 감시 서비스 연결을 확인하지 못했어요. 권한이 켜져 있어도 기종별 절전 설정으로 멈출 수 있어요.",
+                fontSize = 22.sp, lineHeight = 32.sp)
+            if (monitorConnected && !extraMonitorsConnected) Text(
+                "앱 설치·다운로드 감시를 연결하지 못했어요. 문자·카톡 알림 감시 설정을 껐다 켜고 다시 확인해주세요.",
+                fontSize = 22.sp, lineHeight = 32.sp, color = colors.error,
+            )
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionTitle("추가 보호")
             PatrolCard {
-                SettingRow(ProtectionSetting("화면 속 링크", "선택 · 데모용 화면 감시", PatrolSymbol.SCREEN,
-                    screenEnabled, openScreenSettings))
+                val setting = ProtectionSetting("화면 속 링크", "선택 · 데모용 화면 감시", PatrolSymbol.SCREEN,
+                    screenEnabled, PermissionGuides.screen, openScreenSettings)
+                SettingRow(setting) { explaining = setting }
                 Text("다른 앱 화면에 보이는 글자와 링크를 살펴봐요.", Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
                     fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
             }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle("어떻게 판단하나요?")
+            Text("기기 안에서 12개 위험 신호의 점수를 더해요. 3점부터 경고하고, 링크가 있으면 2점부터 Google 위험 목록을 조회해요. 점수는 위험 확률이 아닌 시험용 기준이에요.",
+                fontSize = 22.sp, lineHeight = 32.sp)
+            Text("목록에 없거나 조회하지 못하면 AI가 주소의 도메인·경로 조합을 추가 분석해요. AI는 웹페이지를 방문하지 않아요. 경고에 Google 목록인지 AI 분석인지 구분해 알려드려요. 경고가 없어도 안전하다는 뜻은 아니에요.",
+                fontSize = 22.sp, lineHeight = 32.sp)
+            Text(if (remoteEnabled) "자동 링크 추가 검사: 동의함" else "자동 링크 추가 검사: 꺼짐 · 현재는 기기 안에서 검사해요.", fontSize = 22.sp)
+            PatrolButton(if (remoteEnabled) "자동 링크 검사 동의 철회" else "자동 링크 추가 검사 안내", onClick = {
+                if (remoteEnabled) changeRemoteConsent(false) else showConsent = true
+            })
+            PatrolButton("링크 직접 검사", onClick = openManualCheck)
+            if (openFieldTrial != null) PatrolButton("실험 기록 (디버그)", onClick = openFieldTrial)
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionTitle("개인정보 안내")
@@ -105,12 +136,12 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
                     PatrolIcon(PatrolSymbol.INFO, colors.primary)
                     Text("문구는 기기 안에서,\n링크는 추가 검사해요", fontSize = 26.sp,
                         lineHeight = 36.sp, fontWeight = FontWeight.SemiBold)
-                    Text("알림·화면 문구 전체는 기기 안에서 검사해요. 의심 링크의 전체 주소는 데모 서버와 Google Safe Browsing으로 전송되고, 추가 분석이 필요하면 OpenAI로도 전송됩니다.",
+                    Text("알림·화면 문구 전체는 기기 안에서 검사해요. 자동 외부 검사에 동의하거나 링크 직접 검사 버튼을 누른 경우, 의심 링크의 전체 주소는 서버와 Google Safe Browsing으로 전송되고 필요하면 OpenAI로도 전송돼요.",
                         fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
                     Text("화면 OCR은 켜져 있을 때만 화면을 잠깐 캡처해 기기 안에서 글자를 읽어요. 캡처 이미지는 저장하거나 서버로 보내지 않습니다.",
                         fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
                     HorizontalDivider(color = colors.outlineVariant)
-                    Text("주소에 개인정보나 로그인 토큰이 포함될 수 있어요. 서버는 주소 원문 대신 변환값을 최대 24시간 저장하지만, 완전한 익명 정보는 아닙니다.",
+                    Text("주소에 개인정보나 로그인 토큰이 포함될 수 있어요. 서버는 주소 원문 대신 해시·판정·시각을 저장해요. 판정은 24시간 동안 사용하며 만료 기록은 다음 조회·저장 때 지워요. 완전한 익명 정보는 아닙니다.",
                         fontSize = 22.sp, lineHeight = 32.sp, color = colors.onSurfaceVariant)
                 }
             }
@@ -119,6 +150,30 @@ fun HomeScreen(settings: List<ProtectionSetting>, screenEnabled: Boolean, openSc
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp), fontSize = 20.sp,
             lineHeight = 30.sp, color = colors.onSurfaceVariant)
     }
+    explaining?.let { setting ->
+        AlertDialog(
+            onDismissRequest = { explaining = null },
+            title = { Text(setting.title, fontSize = 26.sp) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    listOf("필요한 이유" to setting.guide.purpose, "켜는 방법" to setting.guide.steps,
+                        "끄는 방법" to setting.guide.revoke, "알아두세요" to setting.guide.limitation).forEach { (title, text) ->
+                        Text(title, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                        Text(text, fontSize = 22.sp, lineHeight = 32.sp)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { explaining = null; setting.open() }) { Text("설정으로 이동", fontSize = 22.sp) } },
+            dismissButton = { TextButton(onClick = { explaining = null }) { Text("닫기", fontSize = 22.sp) } },
+        )
+    }
+    if (showConsent) AlertDialog(
+        onDismissRequest = { showConsent = false },
+        title = { Text("의심 링크를 추가 검사할까요?", fontSize = 26.sp) },
+        text = { Text("문자와 화면의 전체 문구는 보내지 않아요. 의심 링크의 전체 주소는 서버·Google으로 보내고, 필요하면 OpenAI로 보내요. 주소 경로와 쿼리에 개인정보·로그인 토큰이 들어 있을 수 있어요. 서버는 주소 원문 대신 해시·판정·시각을 저장해요. 판정은 24시간 동안 사용하고 만료 기록은 다음 조회·저장 때 지워요. 해시는 익명화가 아니에요. 동의는 이 화면에서 언제든 철회할 수 있고, 철회 전에 전송된 정보는 되돌릴 수 없어요. 동의하지 않아도 기기 내 경고는 동작해요.", modifier = Modifier.verticalScroll(rememberScrollState()), fontSize = 22.sp) },
+        confirmButton = { TextButton(onClick = { changeRemoteConsent(true); showConsent = false }) { Text("동의하고 켜기", fontSize = 22.sp) } },
+        dismissButton = { TextButton(onClick = { showConsent = false }) { Text("기기 안에서만 검사", fontSize = 22.sp) } },
+    )
 }
 
 @Composable
@@ -127,9 +182,9 @@ private fun SectionTitle(title: String) {
 }
 
 @Composable
-private fun SettingRow(setting: ProtectionSetting) {
+private fun SettingRow(setting: ProtectionSetting, explain: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val interaction = if (setting.enabled) Modifier else Modifier.clickable(role = Role.Button, onClick = setting.open)
+    val interaction = Modifier.clickable(role = Role.Button, onClick = explain)
     Row(
         interaction.fillMaxWidth().padding(horizontal = 20.dp, vertical = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -139,7 +194,7 @@ private fun SettingRow(setting: ProtectionSetting) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(setting.title, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold)
             Text(setting.description, fontSize = 20.sp, lineHeight = 28.sp, color = colors.onSurfaceVariant)
-            Text(if (setting.enabled) "✓ 켜짐" else "눌러서 켜기", fontSize = 20.sp, lineHeight = 28.sp,
+            Text(if (setting.enabled) "✓ 켜짐 · 안내 / 끄기" else "눌러서 안내 보기", fontSize = 20.sp, lineHeight = 28.sp,
                 modifier = Modifier.background(
                     if (setting.enabled) colors.surfaceVariant else colors.primaryContainer,
                     RoundedCornerShape(8.dp),

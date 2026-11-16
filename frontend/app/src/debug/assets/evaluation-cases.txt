@@ -1,0 +1,61 @@
+# id|label|category|split|rationale|source|evaluation_type|text
+N01|normal|일상|development|일상의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|내일 회의 자료 https://docs.google.com/abc 확인 부탁드려요.
+N02|normal|일상|development|일상의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|오늘 저녁 7시에 만나요.
+N03|normal|배송|development|배송의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|택배가 문 앞에 도착했습니다.
+N04|normal|배송|development|배송의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|택배 배송 조회는 평소 사용하던 공식 앱에서 확인하세요.
+N05|normal|납부|development|납부의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|이번 달 미납 요금은 없습니다.
+N06|normal|환급|development|환급의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|환급금 안내는 공식 앱의 내역에서 확인할 수 있습니다.
+N07|normal|광고|development|광고의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|오늘 하루 20% 할인 쿠폰 https://shop.example.com/event
+N08|normal|광고|development|광고의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|경품 당첨자는 매장 게시판에서 확인하세요.
+N09|normal|가족|development|가족의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|엄마가 새 휴대폰으로 바꿨어. 사진 보내줘.
+N10|normal|가족|development|가족의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|아빠 저녁에 전화할게.
+N11|normal|가족|development|가족의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|딸과 함께 산책하고 왔어요.
+N12|normal|인증|development|인증의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|인증번호는 123456입니다. 본인이 요청한 경우에만 사용하세요.
+N13|normal|인증|development|인증의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|비밀번호가 변경되었습니다. 본인이 변경했는지 공식 앱에서 확인하세요.
+N14|normal|보안교육|development|보안교육의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|인증번호를 알려주지 마세요. 엄마 사칭 문자에 주의하세요.
+N15|normal|보안교육|development|보안교육의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|주민등록번호 전체를 입력하지 마세요.
+N16|normal|정책|development|정책의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|주민등록번호 제도에 관한 안내 자료입니다.
+N17|normal|정책|development|정책의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|고객센터에서 계정 보안과 로그인 잠금 정책을 안내합니다.
+N18|normal|보안|development|보안의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|계정 보안을 위해 공식 앱에서 접속 내역을 확인하세요.
+N19|normal|납부|development|납부의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|자동이체가 정상 처리되었습니다.
+N20|normal|금융|development|금융의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|고객님 계좌에 입금되었습니다.
+N21|normal|금융|development|금융의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|이번 달 카드 이용 명세서가 발급되었습니다.
+N22|normal|공지|development|공지의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|도서관 운영 시간 안내 https://library.example.org/hours
+N23|normal|공지|development|공지의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|건강검진 예약은 공식 앱에서 확인하세요.
+N24|normal|공지|development|공지의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|학교 공지 https://school.example.org/notice
+N25|normal|국제화|development|국제화의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|한글 도메인 안내 https://한글.example/소개
+N26|normal|내부망|development|내부망의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|사내 개발 서버 http://192.0.2.20:8080 에서 테스트합니다.
+N27|normal|배송|development|배송의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|택배 도착 예정 https://delivery.example/track
+N28|normal|일상|development|일상의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|첨부 문서 확인 https://files.example.net/report.pdf
+N29|normal|공지|development|공지의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|정부지원 사업 설명회는 다음 주입니다.
+N30|normal|일상|development|일상의 정상 안내·대화·교육 상황으로 작성. 정보 제공이나 외부 송금을 속여 요구하지 않음.|synthetic|message_local_and_pipeline|미납과 환급의 차이를 공부했습니다.
+P01|phishing|배송사칭|development|배송사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|택배 주소 불일치, 지금 확인 bit.ly/parcel-check
+P02|phishing|배송사칭|development|배송사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|택배 보류 확인 http://192.0.2.1/parcel.apk
+P03|phishing|기관사칭|development|기관사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|과태료 미납 조회 http://notice.example/pay
+P04|phishing|기관사칭|development|기관사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|정부지원 환급 신청 http://support.example/refund
+P05|phishing|가족사칭|development|가족사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|엄마 나 휴대폰이 고장났어. 인증번호 보내줘.
+P06|phishing|가족사칭|development|가족사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|아빠 계좌가 바뀌었어. 급하게 30만원 이체해줘.
+P07|phishing|가족사칭|development|가족사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|언니 나 폰 깨졌어. 인증번호 알려줘.
+P08|phishing|가족사칭|development|가족사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|어머니 급하게 돈 송금해주세요.
+P09|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|계정이 곧 정지됩니다. 보안 확인 bit.ly/account-check
+P10|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|서비스 제한 해제에 인증번호 입력이 필요합니다.
+P11|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|카드가 차단됩니다. 비밀번호 알려주세요.
+P12|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|로그인 잠금 해제 http://unlock.example/login
+P13|phishing|경품사칭|development|경품사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|경품 당첨! tinyurl.com/free-gift 확인하세요.
+P14|phishing|경품사칭|development|경품사칭 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|당첨금 수령을 위해 인증번호 보내주세요.
+P15|phishing|설치유도|development|설치유도 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|보안 검사 앱을 설치하세요 https://install.example/security.apk
+P16|phishing|설치유도|development|설치유도 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|사진 확인 https://192.0.2.9/photo.apk
+P17|phishing|주소위장|development|주소위장 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|공식 로그인 https://trusted.example@attacker.example/login
+P18|phishing|개인정보|development|개인정보 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|환급 신청에 주민등록번호 전체를 기재해주세요.
+P19|phishing|개인정보|development|개인정보 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|본인 확인을 위해 주민번호 13자리 입력하세요.
+P20|phishing|금전요구|development|금전요구 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|엄마 나 폰 고장났어. 상품권 사서 코드 알려줘.
+P21|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|계정 정지 해제 https://support.example/login 인증번호 알려주세요.
+P22|phishing|주소위장|development|주소위장 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|미납 확인 https://раураl.com/pay
+P23|phishing|주소위장|development|주소위장 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|결제 오류 확인 https://192.0.2.11/pay
+P24|phishing|계정탈취|development|계정탈취 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|긴급 보안 점검 https://support.example/update.apk
+P25|phishing|규칙밖위장|development|규칙밖위장 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|공식 서비스 안내 https://bank.example.attacker.example/session
+P26|phishing|규칙밖위장|development|규칙밖위장 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|사진 확인 https://photos.example/reset-session
+P27|phishing|규칙밖유도|development|규칙밖유도 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|전자 청구서 확인 https://billing.example/verify
+P28|phishing|약한신호|development|약한신호 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|미납 확인 https://notice.example/pay
+P29|phishing|링크없는요구|development|링크없는요구 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|지금 급하게 50만원 이체해주세요.
+P30|phishing|약한신호|development|약한신호 상황으로 작성한 교육용 사칭 문장. 주소는 악성 여부의 증거가 아니라 시뮬레이션 소재임.|synthetic|message_local_and_pipeline|엄마 나 폰 고장났어. 새 번호 저장해.

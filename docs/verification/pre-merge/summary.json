@@ -1,0 +1,27 @@
+﻿{
+    "status":  "passed",
+    "run_id":  "e14ab213-d471-4d4c-ab15-91197c5e1f36",
+    "started_at":  "2026-11-16T11:13:29.5605256Z",
+    "recorded_at":  "2026-11-16T11:13:50.4608949Z",
+    "branch":  "feature/backend-check-api",
+    "base_commit":  "70923b46037a166bf3cc6c6fa248d4f764f60f8c",
+    "uncommitted_changes":  true,
+    "android_tests":  44,
+    "android_failures":  0,
+    "backend_tests":  132,
+    "backend_failures":  0,
+    "lint_warnings":  5,
+    "lint_errors":  0,
+    "debug_build":  "passed",
+    "release_build":  "passed_unsigned",
+    "physical_device":  "not_verified_by_script",
+    "emulator":  "not_verified_by_script",
+    "connected_device_inventory":  {
+                                       "status":  "read_only_inventory",
+                                       "physical":  0,
+                                       "emulators":  0,
+                                       "unauthorized":  0
+                                   },
+    "external_detection":  "not_measured; mock only",
+    "env_tracked":  false
+}

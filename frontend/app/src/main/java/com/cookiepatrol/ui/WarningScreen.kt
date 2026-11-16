@@ -53,7 +53,7 @@ fun WarningScreen(reason: String, action: String, onDismiss: () -> Unit) {
                     Text(action, fontSize = 26.sp, lineHeight = 38.sp, color = colors.onErrorContainer,
                         fontWeight = FontWeight.SemiBold)
                 }
-                PatrolButton("확인했어요", onDismiss)
+                PatrolButton("확인했어요", onClick = onDismiss)
             }
         }
         Text("버튼을 누르면 안내 화면이 닫혀요.\n계속 진행할지는 직접 결정할 수 있어요.",

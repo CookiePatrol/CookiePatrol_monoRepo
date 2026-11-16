@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
 from app.application.check_url import CheckUrl
-from app.domain.url_check import ThreatCheckUnavailable
+from app.domain.url_check import PROMPT_VERSION, ThreatCheckUnavailable
 
 router = APIRouter()
 _check_url: CheckUrl | None = None
@@ -63,7 +63,8 @@ def get_check_url() -> CheckUrl:
             except ImportError as exc:
                 raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
 
-            _check_url = CheckUrl(checker, cache, primary=primary)
+            _check_url = CheckUrl(checker, cache, primary=primary, detailed_checker=checker,
+                                  primary_cache_ttl=primary.cache_ttl_remaining)
         return _check_url
 
 
@@ -111,12 +112,16 @@ class CheckResponse(BaseModel):
     dangerous: bool
 
 
-@router.post("/check", response_model=CheckResponse)
-def check_url(
-    body: CheckRequest,
-    request: Request,
-    service: CheckUrl = Depends(get_check_url),
-) -> CheckResponse:
+class CheckDetailsResponse(CheckResponse):
+    source: str
+    indicators: list[str]
+    reason: str
+    prompt_version: str = PROMPT_VERSION
+    limitation: str = "AI는 주소 문자열만 분석해요. 웹페이지·이동 경로를 확인하지 않으며 안전을 보증하지 않아요."
+    google_cache_ttl_seconds: float = 0.0
+
+
+def enforce_rate_limit(request: Request) -> None:
     client = request.client.host if request.client is not None else "unknown"
     retry_after = _check_rate_limiter.retry_after(client)
     if retry_after is not None:
@@ -125,8 +130,26 @@ def check_url(
             detail="Too many URL checks; try again later",
             headers={"Retry-After": str(retry_after)},
         )
+
+
+@router.post("/check", response_model=CheckResponse, dependencies=[Depends(enforce_rate_limit)])
+def check_url(
+    body: CheckRequest,
+    service: CheckUrl = Depends(get_check_url),
+) -> CheckResponse:
     try:
         return CheckResponse(dangerous=service(body.url))
+    except ThreatCheckUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
+
+
+@router.post("/check/details", response_model=CheckDetailsResponse, dependencies=[Depends(enforce_rate_limit)])
+def check_url_details(body: CheckRequest, service: CheckUrl = Depends(get_check_url)) -> CheckDetailsResponse:
+    try:
+        result = service.assess(body.url)
+        return CheckDetailsResponse(dangerous=result.dangerous, source=result.source,
+                                    indicators=list(result.indicators), reason=result.reason,
+                                    google_cache_ttl_seconds=result.google_cache_ttl_seconds)
     except ThreatCheckUnavailable as exc:
         raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
 
