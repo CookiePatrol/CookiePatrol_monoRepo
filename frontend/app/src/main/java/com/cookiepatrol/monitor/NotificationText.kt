@@ -1,26 +1,64 @@
 package com.cookiepatrol.monitor
 
 import java.security.MessageDigest
+import java.util.UUID
 
-data class MessagePart(val text: String, val timestamp: Long = 0)
+data class MessagePart(val text: String, val timestamp: Long = 0, val sender: String? = null)
 data class NotificationContent(
     val title: String = "", val text: String = "", val bigText: String = "",
     val lines: List<String> = emptyList(), val messages: List<MessagePart> = emptyList(),
     val groupSummary: Boolean = false,
 )
 
-/** Separate messages must not combine into a fabricated risk context. History is not scanned. */
+/** Conversation notifications carry the individual messages. The summary repeats their content. */
 internal object NotificationText {
     fun parts(content: NotificationContent): List<MessagePart> {
+        if (content.groupSummary) return emptyList()
         val bodies = when {
             content.messages.any { it.text.isNotBlank() } -> content.messages.filter { it.text.isNotBlank() }.takeLast(10)
             content.lines.any { it.isNotBlank() } -> content.lines.filter { it.isNotBlank() }.takeLast(10).map { MessagePart(it) }
             content.bigText.isNotBlank() -> listOf(MessagePart(content.bigText))
             content.text.isNotBlank() -> listOf(MessagePart(content.text))
-            !content.groupSummary && content.title.isNotBlank() -> listOf(MessagePart(content.title))
+            content.title.isNotBlank() -> listOf(MessagePart(content.title))
             else -> emptyList()
         }
-        return bodies.distinct().map { it.copy(text = it.text.take(12_000)) }
+        return bodies.map { it.copy(text = it.text.take(12_000)) }
+    }
+}
+
+internal data class IncomingMessage(val eventKey: String, val part: MessagePart)
+
+/** Retain hashes of the messages still displayed under each notification key. */
+internal class NotificationMessageTracker {
+    private val active = LinkedHashMap<String, Map<String, Int>>()
+    private val recentTimedMessages = EventDeduplicator(ttlMillis = 24 * 60 * 60_000L, maxEntries = 2_048)
+
+    @Synchronized
+    fun update(key: String, conversation: String, parts: List<MessagePart>): List<IncomingMessage> {
+        val previous = active.remove(key).orEmpty()
+        val current = mutableMapOf<String, Int>()
+        val incoming = parts.mapNotNull { part ->
+            val timed = part.timestamp > 0
+            val body = fingerprint("$conversation\u0000${part.timestamp}\u0000${part.sender.orEmpty()}\u0000${part.text}")
+            val occurrence = current.getOrDefault(body, 0) + 1
+            current[body] = occurrence
+            if (occurrence <= previous.getOrDefault(body, 0)) return@mapNotNull null
+
+            if (timed) {
+                if (recentTimedMessages.admit(body)) IncomingMessage(body, part) else null
+            } else {
+                // InboxStyle supplies no per-message time. Use new occurrences in its current snapshot.
+                IncomingMessage(UUID.randomUUID().toString(), part)
+            }
+        }
+        if (current.isNotEmpty()) active[key] = current
+        while (active.size > 512) active.remove(active.keys.first())
+        return incoming
+    }
+
+    @Synchronized
+    fun remove(key: String) {
+        active.remove(key)
     }
 }
 

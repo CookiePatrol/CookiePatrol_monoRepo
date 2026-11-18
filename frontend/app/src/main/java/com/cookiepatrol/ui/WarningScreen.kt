@@ -20,7 +20,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun WarningScreen(reason: String, action: String, onDismiss: () -> Unit) {
+fun WarningScreen(
+    reason: String,
+    action: String,
+    onDismiss: () -> Unit,
+    messagePreview: String? = null,
+    sender: String? = null,
+    receivedAt: String? = null,
+    linkHost: String? = null,
+    additionalReason: String? = null,
+) {
     val colors = MaterialTheme.colorScheme
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -36,13 +45,26 @@ fun WarningScreen(reason: String, action: String, onDismiss: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("잠깐, 확인해주세요", color = colors.error,
                         fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                    Text("사기(피싱)일 수\n있어요", fontSize = 36.sp, lineHeight = 46.sp,
+                    Text(if (messagePreview == null) "사기(피싱)일 수 있어요" else "이 메시지는 사기일 수 있어요",
+                        fontSize = 36.sp, lineHeight = 46.sp,
                         letterSpacing = (-0.3).sp, fontWeight = FontWeight.Bold)
                 }
+                if (messagePreview != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("확인할 메시지", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                        sender?.let { Text("보낸 사람·대화  $it", fontSize = 20.sp) }
+                        receivedAt?.let { Text("메시지 알림 시각  $it", fontSize = 20.sp) }
+                        if (messagePreview.isNotBlank()) {
+                            Text("“$messagePreview”", fontSize = 22.sp, lineHeight = 32.sp)
+                        }
+                    }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("발견한 이유", fontSize = 22.sp, color = colors.onSurfaceVariant,
+                    Text("의심되는 이유", fontSize = 22.sp, color = colors.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold)
                     Text(reason, fontSize = 26.sp, lineHeight = 38.sp)
+                    linkHost?.let { Text("의심 링크 주소  $it", fontSize = 22.sp, lineHeight = 32.sp) }
+                    additionalReason?.let { Text(it, fontSize = 22.sp, lineHeight = 32.sp) }
                 }
                 Column(
                     Modifier.fillMaxWidth().background(colors.errorContainer, RoundedCornerShape(20.dp)).padding(20.dp),
