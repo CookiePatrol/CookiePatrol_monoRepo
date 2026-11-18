@@ -26,6 +26,18 @@ class WarningHistoryTest {
         assertEquals(listOf("unknown", "ai", "google", "new message"), displayed)
     }
 
+    @Test fun onlyTheFirstPublicationForEachMessageMayAlert() {
+        val history = WarningHistory()
+        val updates = mutableListOf<Boolean>()
+        history.publish("first", WarningPriority.LOCAL, updates::add)
+        history.publish("first", WarningPriority.LOCAL, updates::add)
+        history.publish("first", WarningPriority.AI, updates::add)
+        history.publish("first", WarningPriority.AI, updates::add)
+        history.publish("first", WarningPriority.GOOGLE, updates::add)
+        history.publish("second", WarningPriority.GOOGLE, updates::add)
+        assertEquals(listOf(false, true, true, false), updates)
+    }
+
     @Test fun failedDeliveryDoesNotPoisonHistoryAndExpiredEvidenceCanRefresh() {
         var time = 0L
         val history = WarningHistory(ttlMillis = 10, maxEntries = 2, now = { time })

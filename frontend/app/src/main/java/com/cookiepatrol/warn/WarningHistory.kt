@@ -10,13 +10,13 @@ internal class WarningHistory(
 ) {
     private val evidence = LinkedHashMap<String, Pair<Long, WarningPriority>>()
 
-    @Synchronized fun publish(event: String, priority: WarningPriority, post: () -> Unit): Boolean {
+    @Synchronized fun publish(event: String, priority: WarningPriority, post: (updating: Boolean) -> Unit): Boolean {
         val time = now()
         evidence.entries.removeAll { time - it.value.first >= ttlMillis }
         val previous = evidence[event]
-        if (previous != null && previous.second > priority) return true // Stronger warning already handled it.
+        if (previous != null && previous.second >= priority) return true
         return runCatching {
-            post()
+            post(previous != null)
             evidence.remove(event)
             evidence[event] = time to priority
             while (evidence.size > maxEntries) evidence.remove(evidence.keys.first())

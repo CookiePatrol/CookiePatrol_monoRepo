@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.ComponentName
 import android.app.NotificationManager
 import android.os.Environment
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import android.os.Build
 import android.database.ContentObserver
@@ -19,6 +20,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.cookiepatrol.detect.Detector
 import com.cookiepatrol.warn.Warning
+import com.cookiepatrol.warn.WarningMessage
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -42,7 +44,6 @@ class NotificationMonitor : NotificationListenerService() {
 
     private var installReceiverRegistered = false
     private var downloadObserverRegistered = false
-    private val repeated = EventDeduplicator(ttlMillis = 5 * 60_000L)
     @Volatile private var listening = false
     private val downloads = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(32),
         { task -> Thread(task, "cookiepatrol-downloads").apply { isDaemon = true } })
@@ -51,40 +52,57 @@ class NotificationMonitor : NotificationListenerService() {
         val notification = sbn.notification
         if (sbn.packageName == packageName || !NotificationFilter.shouldInspect(sbn.packageName, notification.category)) return
         // Apps may change extras formats; malformed bundles cannot stop the listener.
-        val parts = runCatching {
+        val content = runCatching {
             val e = notification.extras
-            NotificationText.parts(NotificationContent(
+            NotificationContent(
                 title = e.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
                 text = e.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
                 bigText = e.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty(),
                 lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.map { it.toString() }.orEmpty(),
                 messages = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
-                    ?.messages?.map { MessagePart(it.text?.toString().orEmpty(), it.timestamp) }.orEmpty(),
+                    ?.messages?.map {
+                        MessagePart(it.text?.toString().orEmpty(), it.timestamp, it.person?.name?.toString())
+                    }.orEmpty(),
                 groupSummary = notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
-            ))
-        }.getOrDefault(emptyList())
-        parts.forEach { part ->
-            val timestamp = part.timestamp.takeIf { it > 0 } ?: notification.`when`.takeIf { it > 0 } ?: sbn.postTime
-            val key = fingerprint("${sbn.key}\u0000$timestamp\u0000${part.text}")
-            if (repeated.admit(key)) Detector.inspect(this, part.text, key)
+            )
+        }.getOrNull() ?: return
+        val parts = NotificationText.parts(content)
+        if (parts.isEmpty()) return
+        val conversation = notification.shortcutId?.takeIf { it.isNotBlank() }?.let {
+            "${sbn.user.hashCode()}\u0000${sbn.packageName}\u0000$it"
+        } ?: sbn.key
+        messages.update(sbn.key, conversation, parts).forEach { (key, part) ->
+            val subject = WarningMessage.from(
+                part.sender ?: content.title.takeUnless { it == part.text },
+                part.text,
+                part.timestamp.takeIf { it > 0 } ?: sbn.postTime,
+            )
+            Detector.inspect(this, part.text, key, subject)
         }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        messages.remove(sbn.key)
     }
 
     private val installReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
             val pkg = intent.data?.schemeSpecificPart ?: return
+            val key = "install\u0000$pkg\u0000${SystemClock.elapsedRealtime()}"
             when {
                 pkg in REMOTE_CONTROL_APPS -> Warning.show(
                     context,
                     "원격제어 앱이 설치됐어요. 다른 사람이 휴대폰을 마음대로 조작할 수 있어요.",
                     "모르는 사람이 설치하라고 했다면 지금 바로 지우세요.",
+                    eventKey = key,
                 )
                 runCatching { packageManager.getInstallSourceInfo(pkg).installingPackageName }
                     .getOrNull() != "com.android.vending" -> Warning.show(
                     context,
                     "플레이스토어가 아닌 곳에서 앱이 설치됐어요.",
                     "직접 설치한 게 아니라면 지금 바로 지우세요.",
+                    eventKey = key,
                 )
             }
         }
@@ -171,6 +189,10 @@ class NotificationMonitor : NotificationListenerService() {
             runCatching { contentResolver.unregisterContentObserver(downloadObserver) }
             downloadObserverRegistered = false
         }
+    }
+
+    private companion object {
+        val messages = NotificationMessageTracker()
     }
 }
 
