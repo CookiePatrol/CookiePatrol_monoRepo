@@ -10,6 +10,12 @@ import java.io.File
 import java.security.MessageDigest
 
 class EvaluationTest {
+    // IDs for the frozen baseline rules, in their original order.
+    private val baselineSignalIds = listOf(
+        "short_url", "http", "ip_host", "userinfo", "idn", "apk", "lure_words",
+        "family", "credential", "transfer", "suspension", "identity",
+    )
+
     private fun cases(name: String = "evaluation-cases.txt") =
         EvaluationCases.parse(File("src/debug/assets/$name").readText())
 
@@ -27,7 +33,8 @@ class EvaluationTest {
         assertTrue(development.all { it.split == "development" })
         assertTrue(holdout.all { it.split == "holdout" })
         assertEquals(120, (development + holdout).map { it.id }.distinct().size)
-        assertEquals(12, SIGNALS.map { it.id }.distinct().size)
+        assertEquals(SIGNALS.size, SIGNALS.map { it.id }.distinct().size)
+        assertEquals(BASELINE_SIGNALS.size, baselineSignalIds.size)
         assertFalse(RiskAnalyzer.analyze(development.first { it.id == "N14" }.text).shouldWarn)
         assertFalse(RiskAnalyzer.analyze(development.first { it.id == "N15" }.text).shouldWarn)
         // Warm up separately. Timing is a JVM micro measurement, never phone performance.
@@ -40,7 +47,7 @@ class EvaluationTest {
             val result = RiskAnalyzer.analyze(case.text)
             "{\"id\":${quote(case.id)},\"score\":${result.score},\"signals\":${strings(result.hits.map { it.id })}," +
                 "\"urls\":${strings(result.urls)},\"local_elapsed_ns_median\":${samples[2]}," +
-                "\"baseline_score\":${oldHits.sumOf { it.value.score }},\"baseline_signals\":${strings(oldHits.map { SIGNALS[it.index].id })}}"
+                "\"baseline_score\":${oldHits.sumOf { it.value.score }},\"baseline_signals\":${strings(oldHits.map { baselineSignalIds[it.index] })}}"
         }
         val hashes = listOf("evaluation-cases.txt", "holdout-cases.txt").joinToString { quote(it) + ":" + quote(sha("src/debug/assets/$it")) }
         val sources = listOf("detect/RiskAnalyzer.kt", "detect/LocalAssessment.kt").joinToString {

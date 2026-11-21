@@ -31,6 +31,7 @@
         </activity>
         <activity android:name=".warn.WarningActivity" android:exported="false" />
         <activity android:name=".ManualCheckActivity" android:exported="false" />
+        <activity android:name=".ScoreGuideActivity" android:exported="false" />
 
         <service
             android:name=".monitor.NotificationMonitor"

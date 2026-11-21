@@ -115,6 +115,7 @@ class CheckResponse(BaseModel):
 class CheckDetailsResponse(CheckResponse):
     source: str
     indicators: list[str]
+    cached_indicators: list[str] | None = None
     reason: str
     prompt_version: str = PROMPT_VERSION
     limitation: str = "AI는 주소 문자열만 분석해요. 웹페이지·이동 경로를 확인하지 않으며 안전을 보증하지 않아요."
@@ -143,12 +144,17 @@ def check_url(
         raise HTTPException(status_code=503, detail="Threat check unavailable") from exc
 
 
-@router.post("/check/details", response_model=CheckDetailsResponse, dependencies=[Depends(enforce_rate_limit)])
+@router.post("/check/details", response_model=CheckDetailsResponse, response_model_exclude_none=True,
+             dependencies=[Depends(enforce_rate_limit)])
 def check_url_details(body: CheckRequest, service: CheckUrl = Depends(get_check_url)) -> CheckDetailsResponse:
     try:
         result = service.assess(body.url)
+        # Keep the original indicators field empty on cache hits for older app versions.
+        cached = result.source == "ai_cache"
         return CheckDetailsResponse(dangerous=result.dangerous, source=result.source,
-                                    indicators=list(result.indicators), reason=result.reason,
+                                    indicators=[] if cached else list(result.indicators),
+                                    cached_indicators=list(result.indicators) if cached and result.indicators else None,
+                                    reason=result.reason,
                                     google_cache_ttl_seconds=result.google_cache_ttl_seconds)
     except ThreatCheckUnavailable as exc:
         raise HTTPException(status_code=503, detail="Threat check unavailable") from exc

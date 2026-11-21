@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 import pytest
 
-from app.domain.url_check import ThreatCheckUnavailable
+from app.domain.url_check import ThreatCheckUnavailable, UrlAssessment
 from app.infrastructure import OpenAIThreatChecker, SqliteVerdictCache
 from app.infrastructure import openai_checker, verdict_cache
 
@@ -22,10 +22,10 @@ def cache(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("dangerous", [True, False])
 def test_cache_round_trip_and_update(cache, dangerous):
-    cache.set("https://example.com", dangerous)
-    assert cache.get("https://example.com") is dangerous
-    cache.set("https://example.com", not dangerous)
-    assert cache.get("https://example.com") is not dangerous
+    cache.set("https://example.com", UrlAssessment(dangerous, "ai"))
+    assert cache.get("https://example.com") == UrlAssessment(dangerous, "ai_cache")
+    cache.set("https://example.com", UrlAssessment(not dangerous, "ai"))
+    assert cache.get("https://example.com") == UrlAssessment(not dangerous, "ai_cache")
 
 
 def test_cache_missing(cache):
@@ -35,13 +35,13 @@ def test_cache_missing(cache):
 def test_cache_expiration_and_refresh(cache, monkeypatch):
     now = 1_000_000.0
     monkeypatch.setattr(verdict_cache.time, "time", lambda: now)
-    cache.set("https://example.com", False)
+    cache.set("https://example.com", UrlAssessment(False, "ai"))
     now += 24 * 60 * 60 - 1
-    assert cache.get("https://example.com") is False
+    assert cache.get("https://example.com").dangerous is False
     now += 1
     assert cache.get("https://example.com") is None
-    cache.set("https://example.com", True)
-    assert cache.get("https://example.com") is True
+    cache.set("https://example.com", UrlAssessment(True, "ai"))
+    assert cache.get("https://example.com").dangerous is True
 
 
 def test_cache_prunes_expired_rows_and_caps_storage(cache, monkeypatch):
@@ -50,32 +50,32 @@ def test_cache_prunes_expired_rows_and_caps_storage(cache, monkeypatch):
     monkeypatch.setattr(verdict_cache, "CACHE_TTL_SECONDS", 10)
     monkeypatch.setattr(verdict_cache, "MAX_CACHE_ENTRIES", 2)
 
-    cache.set("https://expired.example", False)
+    cache.set("https://expired.example", UrlAssessment(False, "ai"))
     now[0] += 11
-    cache.set("https://one.example", False)
-    cache.set("https://two.example", True)
-    cache.set("https://three.example", False)
+    cache.set("https://one.example", UrlAssessment(False, "ai"))
+    cache.set("https://two.example", UrlAssessment(True, "ai"))
+    cache.set("https://three.example", UrlAssessment(False, "ai"))
 
     rows = cache._connection.execute("SELECT cache_key FROM verdicts").fetchall()
     assert len(rows) == 2
     assert cache.get("https://expired.example") is None
     assert cache.get("https://one.example") is None
-    assert cache.get("https://two.example") is True
-    assert cache.get("https://three.example") is False
+    assert cache.get("https://two.example").dangerous is True
+    assert cache.get("https://three.example").dangerous is False
 
 
 def test_cache_persists(cache):
-    cache.set("https://example.com", True)
+    cache.set("https://example.com", UrlAssessment(True, "ai", ("deceptive_host",)))
     other = SqliteVerdictCache()
     try:
-        assert other.get("https://example.com") is True
+        assert other.get("https://example.com") == UrlAssessment(True, "ai_cache", ("deceptive_host",))
     finally:
         other.close()
 
 
 def test_cache_stores_only_sha256_url_key(cache):
     url = "https://example.com/path?token=private"
-    cache.set(url, True)
+    cache.set(url, UrlAssessment(True, "ai", ("deceptive_host", "private")))
 
     columns = {
         row[1] for row in cache._connection.execute("PRAGMA table_info(verdicts)").fetchall()
@@ -84,7 +84,28 @@ def test_cache_stores_only_sha256_url_key(cache):
 
     assert "url" not in columns
     assert row == (hashlib.sha256(url.encode("utf-8")).hexdigest(),)
-    assert url not in repr(cache._connection.execute("SELECT * FROM verdicts").fetchall())
+    assert "private" not in repr(cache._connection.execute("SELECT * FROM verdicts").fetchall())
+    assert cache.get(url).indicators == ("deceptive_host",)
+
+
+def test_existing_hash_only_cache_is_upgraded_without_inventing_evidence(tmp_path, monkeypatch):
+    db_path = tmp_path / "old-cache.db"
+    url = "https://example.com/"
+    key = hashlib.sha256(url.encode("utf-8")).hexdigest()
+    connection = sqlite3.connect(db_path)
+    with connection:
+        connection.execute(
+            "CREATE TABLE verdicts (cache_key TEXT PRIMARY KEY, dangerous INTEGER NOT NULL, checked_at REAL NOT NULL)"
+        )
+        connection.execute("INSERT INTO verdicts VALUES (?, 1, ?)", (key, verdict_cache.time.time()))
+    connection.close()
+    monkeypatch.setenv("CACHE_DB_PATH", str(db_path))
+
+    cache = SqliteVerdictCache()
+    try:
+        assert cache.get(url) == UrlAssessment(True, "ai_cache")
+    finally:
+        cache.close()
 
 
 def test_cache_migrates_and_removes_legacy_plaintext_urls(tmp_path, monkeypatch):
@@ -105,7 +126,7 @@ def test_cache_migrates_and_removes_legacy_plaintext_urls(tmp_path, monkeypatch)
             row[1] for row in cache._connection.execute("PRAGMA table_info(verdicts)").fetchall()
         }
         rows = cache._connection.execute("SELECT * FROM verdicts").fetchall()
-        assert columns == {"cache_key", "dangerous", "checked_at"}
+        assert columns == {"cache_key", "dangerous", "checked_at", "indicators"}
         assert rows == []
         assert private_url.encode("utf-8") not in db_path.read_bytes()
     finally:
@@ -115,8 +136,8 @@ def test_cache_migrates_and_removes_legacy_plaintext_urls(tmp_path, monkeypatch)
 def test_cache_thread_pool(cache):
     def store_and_read(index):
         url = f"https://example.com/{index}"
-        cache.set(url, bool(index % 2))
-        return cache.get(url)
+        cache.set(url, UrlAssessment(bool(index % 2), "ai"))
+        return cache.get(url).dangerous
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         assert list(pool.map(store_and_read, range(32))) == [

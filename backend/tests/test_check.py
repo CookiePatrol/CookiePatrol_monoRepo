@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -34,13 +36,13 @@ class FakeChecker:
 
 class FakeCache:
     def __init__(self):
-        self.values: dict[str, bool] = {}
+        self.values: dict[str, UrlAssessment] = {}
 
-    def get(self, url: str) -> bool | None:
+    def get(self, url: str) -> UrlAssessment | None:
         return self.values.get(url)
 
-    def set(self, url: str, dangerous: bool) -> None:
-        self.values[url] = dangerous
+    def set(self, url: str, result: UrlAssessment) -> None:
+        self.values[url] = replace(result, source="ai_cache")
 
 
 @pytest.fixture

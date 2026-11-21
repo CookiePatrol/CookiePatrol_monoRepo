@@ -9,13 +9,18 @@ enum class CheckStatus { DANGEROUS, NOT_DETECTED, UNKNOWN }
 
 data class CheckResult(val status: CheckStatus, val source: String? = null, val indicators: List<String> = emptyList(),
                        val googleCacheTtlSeconds: Double = 0.0) {
-    internal val cacheLifetimeMillis: Long get() = if (source == "safe_browsing")
-        (googleCacheTtlSeconds.coerceIn(0.0, 300.0) * 1000).toLong() else 5 * 60_000L
+    internal val cacheLifetimeMillis: Long get() = when (source) {
+        "safe_browsing" -> (googleCacheTtlSeconds.coerceIn(0.0, 300.0) * 1000).toLong()
+        "legacy" -> 0L // The old endpoint cannot report the provider or the verdict's lifetime.
+        else -> 5 * 60_000L
+    }
     val warningReason: String get() = when (source) {
         "safe_browsing" -> "Google 위험 목록에 등록된 링크예요."
-        "ai_cache" -> "최근 AI 검사에서 주소의 위험 신호가 발견됐어요. 사이트 방문 결과는 아니에요."
+        "ai_cache" -> "최근 AI 검사에서 주소의 위험 신호를 찾았어요." +
+            (AI_INDICATOR_REASONS[indicators.firstOrNull()]?.let { " $it" } ?: "")
         "ai" -> "AI가 주소에서 위험 신호를 찾았어요. " +
             (AI_INDICATOR_REASONS[indicators.firstOrNull()] ?: "사이트 방문 결과는 아니에요.")
+        "legacy" -> "서버가 위험 신호를 찾았어요. 이 검사에서는 구체적인 이유를 확인할 수 없어요."
         else -> "링크 추가 검사에서 위험 신호를 찾았어요."
     }
 }
@@ -30,12 +35,12 @@ internal val AI_INDICATOR_REASONS = mapOf(
 
 internal fun detailedResult(dangerous: Boolean, source: String, indicators: List<String>, googleTtl: Double = 0.0): CheckResult {
     if (!googleTtl.isFinite() || googleTtl < 0) return CheckResult(CheckStatus.UNKNOWN)
+    val knownIndicators = indicators.size <= AI_INDICATOR_REASONS.size &&
+        indicators.distinct().size == indicators.size && indicators.all { it in AI_INDICATOR_REASONS }
     val valid = when (source) {
         "safe_browsing" -> dangerous && indicators.isEmpty()
-        "ai_cache" -> indicators.isEmpty()
-        "ai" -> dangerous == indicators.isNotEmpty() &&
-            indicators.size <= AI_INDICATOR_REASONS.size && indicators.distinct().size == indicators.size &&
-            indicators.all { it in AI_INDICATOR_REASONS }
+        "ai_cache" -> knownIndicators && (dangerous || indicators.isEmpty())
+        "ai" -> knownIndicators && dangerous == indicators.isNotEmpty()
         else -> false
     }
     return if (valid) CheckResult(statusForResponse(200, dangerous), source, indicators, googleTtl)
@@ -54,10 +59,38 @@ object CheckApi {
     /** 서버의 Safe Browsing + AI 판정. NOT_DETECTED는 안전 보증이 아니다. */
     fun check(url: String): CheckStatus = checkDetails(url).status
 
-    fun checkDetails(url: String): CheckResult = checkAt(url, "$baseUrl/check/details")
+    fun checkDetails(url: String): CheckResult = checkAt(url, "$baseUrl/check/details", "$baseUrl/check")
 
-    internal fun checkAt(url: String, endpoint: String): CheckResult = runCatching {
+    internal fun checkAt(url: String, endpoint: String, legacyEndpoint: String? = null): CheckResult = runCatching {
         val startedAt = System.nanoTime()
+        val response = post(url, endpoint)
+        if (legacyEndpoint != null && (response.code == 404 || response.code == 405)) {
+            val legacy = post(url, legacyEndpoint)
+            val status = statusForResponse(legacy.code, legacy.data?.opt("dangerous") as? Boolean)
+            return CheckResult(status, "legacy".takeIf { status != CheckStatus.UNKNOWN })
+        }
+        val data = response.data ?: return CheckResult(CheckStatus.UNKNOWN)
+        val dangerous = data.get("dangerous") as? Boolean ?: return CheckResult(CheckStatus.UNKNOWN)
+        val source = data.getString("source")
+        val indicators = data.getJSONArray("indicators")
+        val evidence = if (source == "ai_cache") {
+            if (indicators.length() != 0) return CheckResult(CheckStatus.UNKNOWN)
+            if (data.has("cached_indicators")) data.getJSONArray("cached_indicators") else indicators
+        } else indicators
+        val result = detailedResult(dangerous, source,
+            (0 until evidence.length()).map { evidence.getString(it) },
+            if (data.has("google_cache_ttl_seconds")) {
+                (data.get("google_cache_ttl_seconds") as? Number)?.toDouble()
+                    ?: return CheckResult(CheckStatus.UNKNOWN)
+            } else 0.0)
+        if (result.source == "safe_browsing") result.copy(googleCacheTtlSeconds =
+            (result.googleCacheTtlSeconds - (System.nanoTime() - startedAt) / 1_000_000_000.0).coerceAtLeast(0.0))
+        else result
+    }.getOrDefault(CheckResult(CheckStatus.UNKNOWN))
+
+    private data class Response(val code: Int, val data: JSONObject? = null)
+
+    private fun post(url: String, endpoint: String): Response {
         val conn = URL(endpoint).openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
@@ -66,10 +99,10 @@ object CheckApi {
             conn.connectTimeout = 3000
             conn.readTimeout = 25000
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.outputStream.use { it.write(JSONObject().put("url", url).toString().toByteArray()) }
+            conn.outputStream.use { it.write(JSONObject().put("url", url).toString().toByteArray(Charsets.UTF_8)) }
 
             val responseCode = conn.responseCode
-            if (responseCode !in 200..299) return CheckResult(CheckStatus.UNKNOWN)
+            if (responseCode !in 200..299) return Response(responseCode)
             val body = conn.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
                 val buffer = CharArray(16_385)
                 var length = 0
@@ -81,20 +114,9 @@ object CheckApi {
                 require(length <= 16_384)
                 String(buffer, 0, length)
             }
-            val data = JSONObject(body)
-            val dangerous = data.get("dangerous") as? Boolean ?: return CheckResult(CheckStatus.UNKNOWN)
-            val indicators = data.getJSONArray("indicators")
-            val result = detailedResult(dangerous, data.getString("source"),
-                (0 until indicators.length()).map { indicators.getString(it) },
-                if (data.has("google_cache_ttl_seconds")) {
-                    (data.get("google_cache_ttl_seconds") as? Number)?.toDouble()
-                        ?: return CheckResult(CheckStatus.UNKNOWN)
-                } else 0.0)
-            if (result.source == "safe_browsing") result.copy(googleCacheTtlSeconds =
-                (result.googleCacheTtlSeconds - (System.nanoTime() - startedAt) / 1_000_000_000.0).coerceAtLeast(0.0))
-            else result
+            return Response(responseCode, JSONObject(body))
         } finally {
             conn.disconnect()
         }
-    }.getOrDefault(CheckResult(CheckStatus.UNKNOWN))
+    }
 }

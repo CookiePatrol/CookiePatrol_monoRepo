@@ -20,7 +20,7 @@ class CheckApiTransportTest {
         }
     }
 
-    private fun withResponse(status: Int, body: String, run: (String) -> Unit) {
+    private fun withResponse(status: Int, body: String, path: String = "/check/details", run: (String) -> Unit) {
         val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).apply { soTimeout = 5000 }
         val executor = Executors.newSingleThreadExecutor()
         val serving = executor.submit {
@@ -31,7 +31,7 @@ class CheckApiTransportTest {
                 while (!headers.endsWith("\r\n\r\n")) {
                     val byte = input.read(); check(byte >= 0 && headers.length < 8192); headers.append(byte.toChar())
                 }
-                assertTrue(headers.startsWith("POST /check/details HTTP/1.1"))
+                assertTrue(headers.startsWith("POST $path HTTP/1.1"))
                 val length = Regex("(?i)Content-Length: (\\d+)").find(headers)!!.groupValues[1].toInt()
                 val content = ByteArray(length)
                 var read = 0
@@ -45,7 +45,7 @@ class CheckApiTransportTest {
             }
         }
         try {
-            run("http://127.0.0.1:${server.localPort}/check/details")
+            run("http://127.0.0.1:${server.localPort}$path")
             serving.get(5, TimeUnit.SECONDS)
         } finally { server.close(); executor.shutdownNow() }
     }
@@ -56,6 +56,32 @@ class CheckApiTransportTest {
             assertEquals(CheckStatus.DANGEROUS, result.status)
             assertEquals("ai", result.source)
             assertFalse(result.warningReason.contains("untrusted"))
+        }
+    }
+
+    @Test fun olderDeploymentStillChecksLinksWithoutClaimingASpecificProvider() {
+        for (dangerous in listOf(true, false)) {
+            withResponse(404, "{}") { details ->
+                withResponse(200, """{"dangerous":$dangerous}""", "/check") { legacy ->
+                    val result = CheckApi.checkAt("https://example.com/한글?token=FAKE", details, legacy)
+                    assertEquals(if (dangerous) CheckStatus.DANGEROUS else CheckStatus.NOT_DETECTED, result.status)
+                    assertEquals("legacy", result.source)
+                    assertEquals(0L, result.cacheLifetimeMillis)
+                    assertFalse(result.warningReason.contains("Google"))
+                }
+            }
+        }
+    }
+
+    @Test fun cachedEvidenceIsShownAndOldReasonlessResponsesStillWork() {
+        withResponse(200, """{"dangerous":true,"source":"ai_cache","indicators":[],"cached_indicators":["deceptive_host"]}""") { endpoint ->
+            val result = CheckApi.checkAt("https://example.com/한글?token=FAKE", endpoint)
+            assertEquals(CheckStatus.DANGEROUS, result.status)
+            assertEquals(listOf("deceptive_host"), result.indicators)
+            assertTrue(result.warningReason.contains(AI_INDICATOR_REASONS.getValue("deceptive_host")))
+        }
+        withResponse(200, """{"dangerous":true,"source":"ai_cache","indicators":[]}""") { endpoint ->
+            assertEquals(CheckStatus.DANGEROUS, CheckApi.checkAt("https://example.com/한글?token=FAKE", endpoint).status)
         }
     }
 

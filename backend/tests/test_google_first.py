@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app import presentation
 from app.application.check_url import CheckUrl
-from app.domain.url_check import ThreatCheckUnavailable
+from app.domain.url_check import ThreatCheckUnavailable, UrlAssessment
 from app.infrastructure import SafeBrowsingChecker
 from app.infrastructure import safe_browsing
 from app.main import app
@@ -30,8 +31,8 @@ class Cache:
     def get(self, url):
         return self.values.get(url)
 
-    def set(self, url, dangerous):
-        self.values[url] = dangerous
+    def set(self, url, result):
+        self.values[url] = replace(result, source="ai_cache")
 
 
 @pytest.mark.parametrize("primary,secondary,expected", [
@@ -44,7 +45,7 @@ def test_google_first_and_fallback(primary, secondary, expected):
     service = CheckUrl(Checker(secondary, "ai", calls), cache, Checker(primary, "google", calls))
     assert service("https://example.com") is expected
     assert calls == (["google"] if primary else ["google", "ai"])
-    assert cache.values == ({} if primary else {"https://example.com": expected})
+    assert cache.values == ({} if primary else {"https://example.com": UrlAssessment(expected, "ai_cache")})
 
 
 @pytest.mark.parametrize("primary", [False, None])
@@ -59,7 +60,7 @@ def test_no_ai_assessment_is_unavailable_and_not_cached(primary):
 
 def test_google_positive_overrides_cached_ai_negative():
     calls, cache = [], Cache()
-    cache.set("https://example.com", False)
+    cache.set("https://example.com", UrlAssessment(False, "ai"))
     service = CheckUrl(Checker(False, "ai", calls), cache, Checker(True, "google", calls))
     assert service("https://example.com") is True
     assert calls == ["google"]
