@@ -137,6 +137,8 @@ object Warning {
             // A reader may already have opened or dismissed this warning.
             // Never post an upgrade to a notification that has already been cleared.
             if (updating && nm.activeNotifications.none { it.tag == tag && it.id == NOTIFICATION_ID }) {
+                // The existing detail still receives the updated stage under the same tag.
+                if (level != null) DemoReceipt.warning(message?.demoRunId, level.stage, tag)
                 return@publish
             }
             val evidence = assessment?.findings?.sortedBy { it.category }.orEmpty()
