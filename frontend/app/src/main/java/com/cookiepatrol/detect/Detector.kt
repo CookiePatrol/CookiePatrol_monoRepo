@@ -12,6 +12,7 @@ import java.net.URI
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 object Detector {
     private const val MAX_LINKS_PER_EVENT = 10
@@ -34,8 +35,9 @@ object Detector {
         message: WarningMessage? = null,
     ) {
         val app = context.applicationContext
+        val demoRunId = message?.demoRunId
         val assessment = RiskAnalyzer.analyze(rawText.take(12_000))
-        DemoReceipt.local(message?.demoRunId, assessment.score)
+        DemoReceipt.local(demoRunId, assessment.score)
         val urls = assessment.urls.take(MAX_LINKS_PER_EVENT)
         val hits = assessment.hits.sortedByDescending { it.score }
         val findings = hits.map {
@@ -85,19 +87,30 @@ object Detector {
             )
         }
 
-        if (!assessment.shouldLookup(PrivacySettings.scope(app), fromMessage = message != null)) return
-        val toCheck = urls.filterNot { it in remembered }
+        val toCheck = if (assessment.shouldLookup(PrivacySettings.scope(app), fromMessage = message != null)) {
+            urls.filterNot { it in remembered }
+        } else emptyList()
+        if (toCheck.isEmpty()) {
+            DemoReceipt.done(demoRunId)
+            return
+        }
         val messageChecks = if (message != null && strongest == null && !assessment.shouldWarn) {
             MessageLinkChecks(toCheck.size, hasUncheckedLinks = assessment.urls.size > urls.size)
         } else null
+        // Cached and rejected lookups can call back before the next URL is submitted.
+        val remainingDemoChecks = demoRunId?.let { AtomicInteger(toCheck.size) }
         toCheck.forEach { url ->
             coordinator(app).lookup(url) { result ->
-                if (!PrivacySettings.remoteEnabled(app)) return@lookup
-                if (result.status == CheckStatus.DANGEROUS) warnAboutLink(url, result)
-                if (message != null) {
-                    messageChecks?.record(result.status)?.let { status ->
-                        Warning.showLinkResult(app, eventKey, message, completed = status == CheckStatus.NOT_DETECTED)
+                try {
+                    if (!PrivacySettings.remoteEnabled(app)) return@lookup
+                    if (result.status == CheckStatus.DANGEROUS) warnAboutLink(url, result)
+                    if (message != null) {
+                        messageChecks?.record(result.status)?.let { status ->
+                            Warning.showLinkResult(app, eventKey, message, completed = status == CheckStatus.NOT_DETECTED)
+                        }
                     }
+                } finally {
+                    if (remainingDemoChecks?.decrementAndGet() == 0) DemoReceipt.done(demoRunId)
                 }
             }
         }

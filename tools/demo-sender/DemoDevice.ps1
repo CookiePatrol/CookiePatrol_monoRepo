@@ -322,6 +322,7 @@ function Get-DemoVerification {
 
     $score = $null
     $stage = $null
+    $completed = $false
     $warningTags = @{}
     foreach ($line in ($result.Output -split '\r?\n')) {
         if ($line -cmatch "^$RunId LOCAL ([0-9]+)$") {
@@ -334,7 +335,9 @@ function Get-DemoVerification {
             $currentStage = [int]$Matches[1]
             if ($null -eq $stage -or $currentStage -gt $stage) { $stage = $currentStage }
             $warningTags[$Matches[2]] = $true
+        } elseif ($line -ceq "$RunId DONE") {
+            $completed = $true
         }
     }
-    [pscustomobject]@{ Score = $score; Stage = $stage; WarningCount = $warningTags.Count }
+    [pscustomobject]@{ Score = $score; Stage = $stage; WarningCount = $warningTags.Count; Completed = $completed }
 }

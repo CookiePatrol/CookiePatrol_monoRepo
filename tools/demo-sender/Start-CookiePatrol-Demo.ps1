@@ -230,7 +230,7 @@ function Start-DemoVerification([string]$Serial, [string]$RunId, $Example) {
         RunId = $RunId
         Example = $Example
         Clock = [Diagnostics.Stopwatch]::StartNew()
-        StableSince = $null
+        Receipt = $null
     }
     Set-VerificationResult '휴대폰이 이 메시지를 검사했는지 확인 중…' $muted
     $verificationTimer.Start()
@@ -239,16 +239,23 @@ function Start-DemoVerification([string]$Serial, [string]$RunId, $Example) {
 $verificationTimer.add_Tick({
     $run = $script:verificationRun
     if ($null -eq $run) { return }
+    $readError = $null
     try {
-        $receipt = Get-DemoVerification -Serial $run.Serial -RunId $run.RunId
+        $latest = Get-DemoVerification -Serial $run.Serial -RunId $run.RunId
+        if ($null -ne $latest.Score) { $run.Receipt = $latest }
     } catch {
-        Complete-DemoVerification "검사 결과를 읽지 못했어요. $($_.Exception.Message)" -IsError
-        return
+        $readError = $_.Exception.Message
     }
     $elapsed = $run.Clock.ElapsedMilliseconds
-    if ($null -eq $receipt.Score) {
+    $receipt = $run.Receipt
+    if ($null -eq $receipt) {
         if ($elapsed -ge 9000) {
-            Complete-DemoVerification '시연 알림은 전달됐지만 검사 응답이 없어요. 최신 시연용 앱과 문자·카톡 감시를 확인하세요.' -IsError
+            $reason = if ($readError) {
+                "제한 시간 안에 검사 결과를 읽지 못했어요. $readError"
+            } else {
+                '시연 알림은 전달됐지만 제한 시간 안에 검사 응답이 없어요. 최신 시연용 앱과 문자·카톡 감시를 확인하세요.'
+            }
+            Complete-DemoVerification $reason -IsError
         }
         return
     }
@@ -257,6 +264,15 @@ $verificationTimer.add_Tick({
     $count = $receipt.WarningCount
     $warning = if ($count -eq 0) { '경고 단계 없음 · 경고 0건' } else { "${stage}단계 · 경고 ${count}건" }
     $summary = "실제 기기 검사 $($receipt.Score)점 · $warning"
+    if (!$receipt.Completed) {
+        if ($elapsed -ge 40000) {
+            Complete-DemoVerification "$summary`r`n제한 시간 안에 검사 완료를 확인하지 못했어요. 최신 시연용 앱과 백엔드를 확인하세요." -IsError
+        } else {
+            Set-VerificationResult "$summary`r`n검사 완료를 기다리는 중…" $muted
+        }
+        return
+    }
+
     if ($count -gt 1) {
         Complete-DemoVerification "$summary`r`n같은 시연 메시지에 경고가 여러 건 만들어졌어요." -IsError
         return
@@ -264,33 +280,24 @@ $verificationTimer.add_Tick({
 
     $example = $run.Example
     if ($null -ne $example) {
-        if ($receipt.Score -ne $example.expectedScore -or $stage -gt $example.expectedStage) {
+        if ($receipt.Score -ne $example.expectedScore) {
             Complete-DemoVerification "$summary`r`n예제에서 예상한 점수 또는 경고 단계와 달라요." -IsError
             return
         }
-        if ($stage -lt $example.expectedStage) {
-            $limit = if ($example.expectedStage -eq 3) { 33000 } else { 12000 }
-            if ($elapsed -ge $limit) {
-                $reason = if ($example.expectedStage -eq 3) {
-                    'Google 3단계가 확인되지 않았어요. 자동 링크 추가 검사와 백엔드를 확인하세요.'
-                } else {
-                    '예상한 경고가 확인되지 않았어요. 휴대폰의 위험 경고 알림을 확인하세요.'
-                }
-                Complete-DemoVerification "$summary`r`n$reason" -IsError
+        if ($stage -ne $example.expectedStage) {
+            $reason = if ($stage -gt $example.expectedStage) {
+                "예상한 $($example.expectedStage)단계보다 높은 경고가 확인됐어요."
+            } elseif ($example.expectedStage -eq 3) {
+                'Google 3단계가 확인되지 않았어요. 자동 링크 추가 검사와 백엔드를 확인하세요.'
             } else {
-                Set-VerificationResult "실제 기기 검사 $($receipt.Score)점 · $($example.expectedStage)단계 경고 확인 중…" $muted
+                '예상한 경고가 확인되지 않았어요. 휴대폰의 위험 경고 알림을 확인하세요.'
             }
+            Complete-DemoVerification "$summary`r`n$reason" -IsError
             return
         }
     }
 
-    if ($null -eq $run.StableSince) { $run.StableSince = $elapsed }
-    $settleTime = if ($null -eq $example -and $stage -eq 0) { 2500 } else { 1200 }
-    if ($elapsed - $run.StableSince -lt $settleTime) { return }
-
-    if ($null -eq $example -and $stage -eq 0) {
-        Complete-DemoVerification "실제 기기 검사 $($receipt.Score)점 · 현재 경고 0건"
-    } elseif ($null -eq $example) {
+    if ($null -eq $example) {
         Complete-DemoVerification $summary
     } else {
         Complete-DemoVerification "$summary`r`n예상 결과와 일치해요."

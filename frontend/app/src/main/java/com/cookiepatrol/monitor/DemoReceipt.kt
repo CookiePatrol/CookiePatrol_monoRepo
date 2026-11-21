@@ -21,4 +21,8 @@ internal object DemoReceipt {
     fun warning(runId: String?, stage: Int, notificationTag: String) {
         if (BuildConfig.DEBUG && runId != null) Log.i(LOG_TAG, "$runId WARNING $stage $notificationTag")
     }
+
+    fun done(runId: String?) {
+        if (BuildConfig.DEBUG && runId != null) Log.i(LOG_TAG, "$runId DONE")
+    }
 }
