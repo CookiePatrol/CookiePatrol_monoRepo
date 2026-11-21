@@ -4,10 +4,10 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.cookiepatrol.detect.Detector
@@ -16,6 +16,16 @@ import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+
+private val EXCLUDED_SCREEN_PACKAGES = setOf("com.android.systemui", "com.cookiepatrol.demosender")
+
+internal fun screenScanPackage(source: CharSequence?, appPackage: String): String? =
+    source?.toString()?.takeUnless { it.isBlank() || it == appPackage || it in EXCLUDED_SCREEN_PACKAGES }
+
+internal data class ScreenScanWindow(val id: Int, val packageName: String)
+
+internal fun screenScanWindow(id: Int, source: CharSequence?, appPackage: String): ScreenScanWindow? =
+    screenScanPackage(source, appPackage)?.let { ScreenScanWindow(id, it) }
 
 internal fun combineScreenText(
     accessibleText: String,
@@ -47,13 +57,13 @@ class ScreenMonitor : AccessibilityService() {
     private val scanAgain = AtomicBoolean(false)
     private val destroyed = AtomicBoolean(false)
     private val recognizerClosed = AtomicBoolean(false)
-    private var lastScreenshotAt = 0L
+    private var lastScanAt = 0L
     private val repeatedText = EventDeduplicator()
 
     private val scanRunnable = Runnable { scanActiveWindow() }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.packageName == packageName) return
+        if (screenScanPackage(event.packageName, packageName) == null) return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED
@@ -70,7 +80,7 @@ class ScreenMonitor : AccessibilityService() {
         }
 
         val now = SystemClock.elapsedRealtime()
-        val delay = MIN_SCREENSHOT_INTERVAL_MS - (now - lastScreenshotAt)
+        val delay = MIN_SCAN_INTERVAL_MS - (now - lastScanAt)
         if (delay > 0) {
             scanInProgress.set(false)
             mainHandler.removeCallbacks(scanRunnable)
@@ -83,14 +93,14 @@ class ScreenMonitor : AccessibilityService() {
             finishScan()
             return
         }
-        if (root.packageName == packageName) {
+        val window = screenScanWindow(root.windowId, root.packageName, packageName)
+        if (window == null) {
             recycleNode(root)
             finishScan()
             return
         }
 
-        val windowId = root.windowId
-        lastScreenshotAt = now
+        lastScanAt = now
         val accessibleText = StringBuilder()
         try {
             collect(root, accessibleText, HashSet(), intArrayOf(0))
@@ -100,41 +110,35 @@ class ScreenMonitor : AccessibilityService() {
         }
         val textSnapshot = accessibleText.toString()
 
+        // Earlier Android releases can only capture a full display, including notification overlays.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            completeScan(window, textSnapshot)
+            return
+        }
+
         val callback = object : TakeScreenshotCallback {
             override fun onSuccess(screenshot: ScreenshotResult) {
                 if (destroyed.get()) {
                     screenshot.hardwareBuffer.close()
-                    finishScan()
+                    completeScan(window, textSnapshot)
                     return
                 }
-                recognizeScreenshot(screenshot, textSnapshot)
+                recognizeScreenshot(window, screenshot, textSnapshot)
             }
 
             override fun onFailure(errorCode: Int) {
-                try {
-                    inspectText(textSnapshot)
-                } finally {
-                    finishScan()
-                }
+                completeScan(window, textSnapshot)
             }
         }
 
         try {
-            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                takeScreenshotOfWindow(windowId, ocrExecutor, callback)
-            } else {
-                takeScreenshot(Display.DEFAULT_DISPLAY, ocrExecutor, callback)
-            }
+            takeScreenshotOfWindow(window.id, ocrExecutor, callback)
         } catch (_: RuntimeException) {
-            try {
-                inspectText(textSnapshot)
-            } finally {
-                finishScan()
-            }
+            completeScan(window, textSnapshot)
         }
     }
 
-    private fun recognizeScreenshot(screenshot: ScreenshotResult, accessibleText: String) {
+    private fun recognizeScreenshot(window: ScreenScanWindow, screenshot: ScreenshotResult, accessibleText: String) {
         val buffer = screenshot.hardwareBuffer
         val bitmap = try {
             Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
@@ -146,38 +150,48 @@ class ScreenMonitor : AccessibilityService() {
         }
 
         if (bitmap == null) {
-            try {
-                inspectText(accessibleText)
-            } finally {
-                finishScan()
-            }
+            completeScan(window, accessibleText)
             return
         }
 
         val task = runCatching { recognizer.process(InputImage.fromBitmap(bitmap, 0)) }.getOrNull()
         if (task == null) {
-            try {
-                inspectText(accessibleText)
-            } finally {
-                bitmap.recycle()
-                finishScan()
-            }
+            bitmap.recycle()
+            completeScan(window, accessibleText)
             return
         }
 
         task.addOnCompleteListener(ocrExecutor) { result ->
+            val recognizedText = runCatching {
+                if (result.isSuccessful) result.result?.text.orEmpty() else ""
+            }.getOrDefault("")
+            bitmap.recycle()
+            completeScan(window, accessibleText, recognizedText)
+        }
+    }
+
+    private fun completeScan(window: ScreenScanWindow, accessibleText: String, recognizedText: String = "") {
+        mainHandler.post {
             try {
-                val recognizedText = if (result.isSuccessful) result.result?.text.orEmpty() else ""
-                inspectText(accessibleText, recognizedText)
+                if (!destroyed.get() && window == activeScanWindow()) {
+                    inspectText(accessibleText, recognizedText)
+                }
             } finally {
-                bitmap.recycle()
                 finishScan()
             }
         }
     }
 
-    private fun inspectText(accessibleText: String, recognizedText: String = "") {
-        if (destroyed.get()) return
+    private fun activeScanWindow(): ScreenScanWindow? {
+        val root = runCatching { rootInActiveWindow }.getOrNull() ?: return null
+        return try {
+            screenScanWindow(root.windowId, root.packageName, packageName)
+        } finally {
+            recycleNode(root)
+        }
+    }
+
+    private fun inspectText(accessibleText: String, recognizedText: String) {
         val combined = combineScreenText(accessibleText, recognizedText, MAX_SCREEN_TEXT_CHARS)
         if (combined.isNotBlank() && repeatedText.admit(fingerprint(combined))) Detector.inspect(this, combined)
     }
@@ -250,7 +264,7 @@ class ScreenMonitor : AccessibilityService() {
 
     private companion object {
         const val SCAN_DELAY_MS = 350L
-        const val MIN_SCREENSHOT_INTERVAL_MS = 2_000L
+        const val MIN_SCAN_INTERVAL_MS = 2_000L
         const val MAX_SCREEN_TEXT_CHARS = 12_000
         const val MAX_NODES_PER_SCAN = 500
     }

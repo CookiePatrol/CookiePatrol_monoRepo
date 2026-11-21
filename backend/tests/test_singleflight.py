@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 import threading
 
 from app.application.check_url import CheckUrl
@@ -18,8 +19,8 @@ def test_concurrent_identical_urls_share_one_provider_call():
             self.value = None
         def get(self, url):
             return self.value
-        def set(self, url, dangerous):
-            self.value = dangerous
+        def set(self, url, result):
+            self.value = replace(result, source="ai_cache")
     entered, release = threading.Event(), threading.Event()
     checker = Checker()
     service = CheckUrl(checker, Cache())

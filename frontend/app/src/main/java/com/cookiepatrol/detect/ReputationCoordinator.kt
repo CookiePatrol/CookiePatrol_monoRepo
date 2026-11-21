@@ -14,7 +14,7 @@ internal class ReputationCoordinator(
     private val pending = HashMap<String, MutableList<(CheckResult) -> Unit>>()
     private val completed = LinkedHashMap<String, Pair<Long, CheckResult>>()
 
-    /** Rewarn on remembered links even below the candidate threshold, without making a request. */
+    /** Reuse recent dangerous verdicts without making a request. */
     @Synchronized fun cachedDangerous(url: String): CheckResult? {
         completed.entries.removeAll { now() >= it.value.first }
         return completed[fingerprint(url)]?.second?.takeIf { it.status == CheckStatus.DANGEROUS }

@@ -1,6 +1,6 @@
 package com.cookiepatrol.warn
 
-enum class WarningPriority { UNAVAILABLE, LOCAL, AI, GOOGLE }
+enum class WarningPriority { UNAVAILABLE, LOCAL, SERVER, AI, GOOGLE }
 
 /** Serialize updates so a late timeout/AI response cannot replace stronger evidence. */
 internal class WarningHistory(

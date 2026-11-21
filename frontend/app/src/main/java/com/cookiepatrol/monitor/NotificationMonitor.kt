@@ -72,10 +72,12 @@ class NotificationMonitor : NotificationListenerService() {
             "${sbn.user.hashCode()}\u0000${sbn.packageName}\u0000$it"
         } ?: sbn.key
         messages.update(sbn.key, conversation, parts).forEach { (key, part) ->
+            val sender = part.sender ?: content.title.takeUnless { it == part.text }
             val subject = WarningMessage.from(
-                part.sender ?: content.title.takeUnless { it == part.text },
+                sender,
                 part.text,
                 part.timestamp.takeIf { it > 0 } ?: sbn.postTime,
+                demoRunId = DemoReceipt.runId(sbn.packageName, sender),
             )
             Detector.inspect(this, part.text, key, subject)
         }

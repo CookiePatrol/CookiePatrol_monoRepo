@@ -37,16 +37,15 @@ class MainActivity : ComponentActivity() {
         val nm = getSystemService(NotificationManager::class.java)
         val listenerEnabled = nm.isNotificationListenerAccessGranted(ComponentName(this, NotificationMonitor::class.java))
         val settings = listOf(
-            ProtectionSetting("경고 알림", "위험 신호를 바로 알려드려요", PatrolSymbol.BELL,
-                Warning.canNotify(this), PermissionGuides.warnings) {
-                startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+            ProtectionSetting("위험 경고 팝업", null, PatrolSymbol.BELL,
+                Warning.canShowOnScreen(this), PermissionGuides.warnings) {
+                startActivity(Warning.settingsIntent(this))
             },
-            ProtectionSetting("문자·카톡 알림 감시", "알림의 글자와 링크를 살펴봐요", PatrolSymbol.MESSAGE,
+            ProtectionSetting("문자·카톡 알림 감시", null, PatrolSymbol.MESSAGE,
                 listenerEnabled, PermissionGuides.messages) {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             },
-            ProtectionSetting("다운로드 감시", if (listenerEnabled) "앱 설치 파일을 받으면 알려드려요" else "먼저 문자·카톡 알림 감시가 필요해요", PatrolSymbol.DOWNLOAD,
+            ProtectionSetting("다운로드 감시", if (listenerEnabled) null else "문자·카톡 감시가 필요해요", PatrolSymbol.DOWNLOAD,
                 Environment.isExternalStorageManager() && listenerEnabled, PermissionGuides.downloads) {
                 if (!listenerEnabled) startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 else startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
@@ -58,13 +57,17 @@ class MainActivity : ComponentActivity() {
             ?.split(':')?.any { ComponentName.unflattenFromString(it) == screenComponent } == true
         setContent {
             CookiePatrolTheme {
-                var remoteEnabled by remember { mutableStateOf(PrivacySettings.remoteEnabled(this)) }
+                var remoteScope by remember { mutableStateOf(PrivacySettings.scope(this)) }
                 HomeScreen(settings, screenEnabled,
                     monitorConnected = MonitorStatus.connected,
                     extraMonitorsConnected = MonitorStatus.installMonitoringReady && MonitorStatus.downloadMonitoringReady,
-                    remoteEnabled = remoteEnabled,
-                    changeRemoteConsent = { enabled -> PrivacySettings.setRemoteEnabled(this, enabled); remoteEnabled = enabled },
+                    remoteScope = remoteScope,
+                    changeRemoteConsent = { enabled ->
+                        PrivacySettings.setRemoteEnabled(this, enabled)
+                        remoteScope = PrivacySettings.scope(this)
+                    },
                     openManualCheck = { startActivity(Intent(this, ManualCheckActivity::class.java)) },
+                    openScoreGuide = { startActivity(Intent(this, ScoreGuideActivity::class.java)) },
                     openFieldTrial = if (BuildConfig.DEBUG) ({
                     startActivity(Intent().setClassName(this, "$packageName.evaluation.FieldTrialActivity"))
                 }) else null) {

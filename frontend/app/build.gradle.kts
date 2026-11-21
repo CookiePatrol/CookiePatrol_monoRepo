@@ -7,6 +7,7 @@ plugins {
 val cookiePatrolApiBaseUrl = providers.gradleProperty("cookiePatrolApiBaseUrl")
     .orElse("http://10.0.2.2:8000")
     .get()
+val cookiePatrolDebugApiBaseUrl = providers.gradleProperty("cookiePatrolDebugApiBaseUrl")
 
 android {
     namespace = "com.cookiepatrol"
@@ -18,6 +19,13 @@ android {
         versionCode = 3
         versionName = "0.2.1"
         buildConfigField("String", "API_BASE_URL", "\"$cookiePatrolApiBaseUrl\"")
+    }
+    buildTypes {
+        debug {
+            cookiePatrolDebugApiBaseUrl.orNull?.let { url ->
+                buildConfigField("String", "API_BASE_URL", "\"$url\"")
+            }
+        }
     }
     buildFeatures {
         compose = true

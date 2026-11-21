@@ -59,9 +59,9 @@ class CheckUrl:
 
         cached = self.cache.get(url)
         if cached is not None:
-            return UrlAssessment(cached, "ai_cache")
+            return cached
 
         result = (self.detailed_checker.assess(url) if self.detailed_checker is not None
                   else UrlAssessment(self.checker.is_dangerous(url), "ai"))
-        self.cache.set(url, result.dangerous)
+        self.cache.set(url, result)
         return result

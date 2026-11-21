@@ -1,0 +1,106 @@
+[
+  {
+    "id": "routine",
+    "label": "정상 안내 · 연락처와 회비 계좌",
+    "expectedScore": 0,
+    "expectedStage": 0,
+    "expected": "기기 검사 0점 · 쿠키패트롤 위험 팝업 없음",
+    "text": "동호회 모임은 토요일 오전 11시입니다. 문의는 010-0000-0000으로 전화해 주세요. 모임 회비 계좌 국민은행 000-0000-000000."
+  },
+  {
+    "id": "phone",
+    "label": "전화번호 · 결제 취소 사칭",
+    "expectedScore": 3,
+    "expectedStage": 2,
+    "expected": "기기 검사 3점 · 2단계 · 전화번호 위험 근거",
+    "text": "해외 결제가 승인되었습니다. 취소하려면 즉시 010-0000-0000으로 전화하세요."
+  },
+  {
+    "id": "account",
+    "label": "계좌번호 · 변경 계좌로 송금 유도",
+    "expectedScore": 3,
+    "expectedStage": 2,
+    "expected": "기기 검사 3점 · 2단계 · 계좌번호 위험 근거",
+    "text": "기존 계좌는 사용하지 마세요. 변경된 계좌 국민은행 000-0000-000000으로 대금을 보내 주세요."
+  },
+  {
+    "id": "combined-local",
+    "label": "복합 위험 · 기기 검사",
+    "expectedScore": 7,
+    "expectedStage": 2,
+    "expected": "기기 검사 7점 · 2단계 · 링크·전화번호·계좌번호 위험 근거",
+    "text": "해외 결제가 승인되었습니다. 취소하려면 즉시 010-0000-0000으로 전화하세요. 기존 계좌는 사용하지 마세요. 변경된 계좌 국민은행 000-0000-000000으로 대금을 보내 주세요. 확인 http://example.invalid/demo"
+  },
+  {
+    "id": "google",
+    "label": "피싱 링크 · Google 위험 목록 테스트",
+    "expectedScore": 1,
+    "expectedStage": 3,
+    "expected": "기기 검사 1점 · 전체 메시지 링크 검사 허용 시 3단계",
+    "text": "안내 주소를 확인해 주세요. http://testsafebrowsing.appspot.com/apiv4/ANY_PLATFORM/SOCIAL_ENGINEERING/URL/"
+  },
+  {
+    "id": "combined-google",
+    "label": "복합 위험 · Google 위험 목록 테스트",
+    "expectedScore": 7,
+    "expectedStage": 3,
+    "expected": "기기 검사 7점 · Google 위험 목록 일치 시 3단계 · 같은 경고에 위험 근거 표시",
+    "text": "해외 결제가 승인되었습니다. 취소하려면 즉시 010-0000-0000으로 전화하세요. 기존 계좌는 사용하지 마세요. 변경된 계좌 국민은행 000-0000-000000으로 대금을 보내 주세요. 확인 http://testsafebrowsing.appspot.com/apiv4/ANY_PLATFORM/SOCIAL_ENGINEERING/URL/"
+  },
+  {
+    "id": "routine-library",
+    "label": "정상 안내 · 도서 대출 예약",
+    "expectedScore": 0,
+    "expectedStage": 0,
+    "expected": "기기 검사 0점 · 쿠키패트롤 위험 팝업 없음",
+    "text": "예약한 책을 안내 데스크에서 받아 주세요. 운영 시간 문의는 02-000-0000으로 전화해 주세요."
+  },
+  {
+    "id": "routine-class",
+    "label": "정상 안내 · 공방 수업 일정",
+    "expectedScore": 0,
+    "expectedStage": 0,
+    "expected": "기기 검사 0점 · 쿠키패트롤 위험 팝업 없음",
+    "text": "동네 공방 수업은 금요일 오후 2시입니다. 준비물은 앞치마와 수건입니다."
+  },
+  {
+    "id": "phone-card-lock",
+    "label": "전화번호 · 카드 잠금 사칭",
+    "expectedScore": 5,
+    "expectedStage": 2,
+    "expected": "기기 검사 5점 · 2단계 · 카드 잠금 및 전화번호 위험 근거",
+    "text": "카드가 잠금 상태입니다. 확인하려면 지금 02-000-0000으로 연락해 주세요."
+  },
+  {
+    "id": "phone-investigator",
+    "label": "전화번호 · 형사 사칭과 문장 끝 번호",
+    "expectedScore": 3,
+    "expectedStage": 2,
+    "expected": "기기 검사 3점 · 2단계 · 수사기관 사칭 전화 유도",
+    "text": "당신의 계좌가 대포통장 범죄에 연류되어 막혀있습니다. 이것을 풀려면 형사의 전화번호로 직접 전화 하십시오. 010-0000-0000"
+  },
+  {
+    "id": "bank-advance-fee",
+    "label": "계좌번호 · 대출 보증료 요구",
+    "expectedScore": 3,
+    "expectedStage": 2,
+    "expected": "기기 검사 3점 · 2단계 · 계좌번호 위험 근거",
+    "text": "대출 보증료가 있습니다. 신한은행 000-0000-000000에 납부하세요."
+  },
+  {
+    "id": "bank-secrecy",
+    "label": "계좌번호 · 대금 정산과 비밀 요구",
+    "expectedScore": 3,
+    "expectedStage": 2,
+    "expected": "기기 검사 3점 · 2단계 · 계좌번호 위험 근거",
+    "text": "대금 정산은 우리은행 000-0000-000000으로 보내 주세요. 다른 직원에게는 알리지 마세요."
+  },
+  {
+    "id": "combined-subscription",
+    "label": "복합 위험 · 구독 결제와 계좌 변경",
+    "expectedScore": 6,
+    "expectedStage": 2,
+    "expected": "기기 검사 6점 · 2단계 · 전화번호·계좌번호 위험 근거",
+    "text": "유료 구독 요금이 청구되었습니다. 결제 오류는 즉시 070-0000-0000으로 전화하세요. 다음 결제는 변경된 계좌 하나은행 000-0000-000000으로 보내 주세요."
+  }
+]

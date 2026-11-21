@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.application.check_url import CheckUrl
 from app.domain.url_check import PROMPT_VERSION, ThreatCheckUnavailable, UrlAssessment
-from app.infrastructure import OpenAIThreatChecker
+from app.infrastructure import OpenAIThreatChecker, SqliteVerdictCache
 from app.infrastructure import openai_checker
 from app.main import app
 from app.presentation import get_check_url
@@ -19,8 +20,8 @@ class Cache:
     def get(self, url):
         return self.values.get(url)
 
-    def set(self, url, dangerous):
-        self.values[url] = dangerous
+    def set(self, url, result):
+        self.values[url] = replace(result, source="ai_cache")
 
 
 class Checker:
@@ -37,9 +38,11 @@ class Checker:
         return UrlAssessment(self.dangerous, "ai", ("brand_impersonation",) if self.dangerous else ())
 
 
-def test_details_exposes_source_and_codes_without_url_or_fabricating_cached_evidence():
+def test_details_exposes_original_evidence_after_a_cache_hit_without_breaking_older_clients(monkeypatch, tmp_path):
     checker, primary = Checker(True), Checker(False)
-    service = CheckUrl(checker, Cache(), primary, detailed_checker=checker)
+    monkeypatch.setenv("CACHE_DB_PATH", str(tmp_path / "cache.db"))
+    cache = SqliteVerdictCache()
+    service = CheckUrl(checker, cache, primary, detailed_checker=checker)
     app.dependency_overrides[get_check_url] = lambda: service
     url = "https://bank.example.attacker.example/login?token=PRIVATE"
     try:
@@ -55,16 +58,19 @@ def test_details_exposes_source_and_codes_without_url_or_fabricating_cached_evid
         assert "PRIVATE" not in first.text and url not in first.text
         assert second.json()["source"] == "ai_cache"
         assert second.json()["indicators"] == []
-        assert "최근" in second.json()["reason"]
+        assert second.json()["cached_indicators"] == ["brand_impersonation"]
+        assert "흉내" in second.json()["reason"]
+        assert "PRIVATE" not in second.text
         assert legacy.json() == {"dangerous": True}
         assert checker.calls == 1 and primary.calls == 3
     finally:
         app.dependency_overrides.clear()
+        cache.close()
 
 
 def test_google_match_details_skips_ai_even_with_cached_negative():
     cache = Cache()
-    cache.set("https://example.com", False)
+    cache.set("https://example.com", UrlAssessment(False, "ai"))
     checker = Checker(False)
     result = CheckUrl(checker, cache, Checker(True), detailed_checker=checker).assess("https://example.com")
     assert result == UrlAssessment(True, "safe_browsing")

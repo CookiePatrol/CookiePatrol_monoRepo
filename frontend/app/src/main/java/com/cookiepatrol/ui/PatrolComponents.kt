@@ -2,14 +2,21 @@ package com.cookiepatrol.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -18,16 +25,63 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-enum class PatrolSymbol { SHIELD, BELL, MESSAGE, DOWNLOAD, SCREEN, INFO, WARNING }
+enum class PatrolSymbol { SHIELD, BELL, MESSAGE, DOWNLOAD, SCREEN, LINK, INFO, WARNING }
+
+@Composable
+internal fun PatrolPage(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+internal fun PatrolSectionTitle(title: String, modifier: Modifier = Modifier) {
+    Text(title, modifier.semantics { heading() }, fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+internal fun PatrolLabel(
+    text: String,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    Text(
+        text,
+        Modifier.background(containerColor, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+        color = contentColor, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold,
+    )
+}
+
+@Composable
+internal fun PatrolDetail(title: String, body: String) {
+    Column {
+        Text(title, fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+        Text(body, Modifier.padding(top = 4.dp), fontSize = 17.sp, lineHeight = 25.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable
 fun PatrolIcon(symbol: PatrolSymbol, tint: Color, modifier: Modifier = Modifier) {
@@ -85,6 +139,14 @@ fun PatrolIcon(symbol: PatrolSymbol, tint: Color, modifier: Modifier = Modifier)
                     outline(5f to 2f, 19f to 2f, 19f to 22f, 5f to 22f, closed = true)
                     line(10f, 18f, 14f, 18f)
                 }
+                PatrolSymbol.LINK -> rotate(-45f) {
+                    val linkSize = Size(10 * unit, 7 * unit)
+                    val radius = CornerRadius(3.5f * unit)
+                    val stroke = Stroke(1.8f * unit)
+                    drawRoundRect(tint, point(2f, 8.5f), linkSize, radius, style = stroke)
+                    drawRoundRect(tint, point(12f, 8.5f), linkSize, radius, style = stroke)
+                    line(8f, 12f, 16f, 12f)
+                }
                 PatrolSymbol.INFO -> {
                     drawCircle(tint, 9 * unit, style = Stroke(1.8f * unit))
                     drawCircle(tint, 1 * unit, point(12f, 7f))
@@ -120,10 +182,12 @@ fun PatrolButton(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.fillMaxWidth().heightIn(min = 72.dp),
         shape = RoundedCornerShape(18.dp),
         colors = androidx.compose.material3.ButtonDefaults.buttonColors(

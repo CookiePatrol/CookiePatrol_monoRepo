@@ -31,11 +31,12 @@ class WarningHistoryTest {
         val updates = mutableListOf<Boolean>()
         history.publish("first", WarningPriority.LOCAL, updates::add)
         history.publish("first", WarningPriority.LOCAL, updates::add)
+        history.publish("first", WarningPriority.SERVER, updates::add)
         history.publish("first", WarningPriority.AI, updates::add)
         history.publish("first", WarningPriority.AI, updates::add)
         history.publish("first", WarningPriority.GOOGLE, updates::add)
         history.publish("second", WarningPriority.GOOGLE, updates::add)
-        assertEquals(listOf(false, true, true, false), updates)
+        assertEquals(listOf(false, true, true, true, false), updates)
     }
 
     @Test fun failedDeliveryDoesNotPoisonHistoryAndExpiredEvidenceCanRefresh() {

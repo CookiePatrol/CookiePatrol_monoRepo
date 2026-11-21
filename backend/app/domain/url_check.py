@@ -24,6 +24,8 @@ class UrlAssessment:
         if self.source == "safe_browsing":
             return "Google 위험 목록에 등록된 링크예요."
         if self.source == "ai_cache":
+            if self.indicators:
+                return "최근 AI 검사에서 주소의 위험 신호가 발견됐어요. " + INDICATOR_REASONS[self.indicators[0]]
             return ("최근 AI 검사에서 주소의 위험 신호가 발견됐어요."
                     if self.dangerous else "최근 AI 검사에서 주소의 위험 신호를 찾지 못했어요. 안전 보증은 아니에요.")
         if self.indicators:
@@ -50,6 +52,6 @@ class DetailedThreatChecker(Protocol):
 
 
 class VerdictCache(Protocol):
-    def get(self, url: str) -> bool | None: ...  # 없거나 만료면 None
+    def get(self, url: str) -> UrlAssessment | None: ...  # 없거나 만료면 None
 
-    def set(self, url: str, dangerous: bool) -> None: ...
+    def set(self, url: str, result: UrlAssessment) -> None: ...

@@ -1,11 +1,17 @@
 package com.cookiepatrol.warn
 
-internal data class WarningMessage(val sender: String?, val preview: String, val timeMillis: Long) {
+internal data class WarningMessage(
+    val sender: String?,
+    val preview: String,
+    val timeMillis: Long,
+    val demoRunId: String? = null,
+) {
     companion object {
-        fun from(sender: String?, text: String, timeMillis: Long) = WarningMessage(
+        fun from(sender: String?, text: String, timeMillis: Long, demoRunId: String? = null) = WarningMessage(
             sender?.let { excerpt(it, 48) }?.takeIf { it.isNotEmpty() },
             excerpt(text, 160),
             timeMillis,
+            demoRunId,
         )
 
         private fun excerpt(raw: String, limit: Int): String {
